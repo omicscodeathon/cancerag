@@ -73,4 +73,3 @@ This project represents a **novel computational strategy** for identifying biase
 - Integration of AI-driven approaches to enhance **predictive accuracy** and **drug discovery efficiency**, incorporating deep learning models for structure-based activity predictions.
 - Collaboration with clinical researchers to fast-track promising drug candidates toward preclinical trials.
 
-This README serves as a comprehensive guide to the project, detailing its objectives, methodology, and anticipated impact on cancer therapeutics and beyond.
