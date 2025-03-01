@@ -1,0 +1,409 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.11.12"
+  },
+  "cells": [
+    {
+      "id": "Hbol",
+      "code_hash": "50cb5d6a29c3f3e7fcb98f2f3947635b",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "Searching for ER-alpha structures...\n"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "Found 10 potential ER-alpha structures\nSearching for ER-beta structures...\n"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "Found 10 potential ER-beta structures\nSearching for ER-complex structures...\n"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "Found 10 potential ER-complex structures\nFound 21 unique structures to process\nClassifying structures based on metadata...\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:   0%|                                                                                                            | 0/21 [00:00<?, ?it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:   5%|\u2588\u2588\u2588\u2588\u258a                                                                                               | 1/21 [00:02<00:45,  2.29s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  10%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c                                                                                          | 2/21 [00:03<00:35,  1.88s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  14%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e                                                                                     | 3/21 [00:05<00:31,  1.77s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  19%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588                                                                                 | 4/21 [00:07<00:29,  1.71s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  24%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a                                                                            | 5/21 [00:08<00:25,  1.58s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  29%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c                                                                       | 6/21 [00:09<00:23,  1.53s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  33%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e                                                                  | 7/21 [00:11<00:20,  1.50s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  38%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588                                                              | 8/21 [00:13<00:20,  1.55s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  43%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a                                                         | 9/21 [00:14<00:18,  1.54s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  48%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258f                                                   | 10/21 [00:16<00:16,  1.54s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  52%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a                                               | 11/21 [00:17<00:15,  1.51s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  57%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c                                          | 12/21 [00:19<00:14,  1.58s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  62%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e                                     | 13/21 [00:20<00:12,  1.57s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  67%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588                                 | 14/21 [00:22<00:10,  1.54s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  71%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258b                            | 15/21 [00:23<00:09,  1.54s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  76%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258d                       | 16/21 [00:25<00:07,  1.60s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  81%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258f                  | 17/21 [00:27<00:06,  1.60s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  86%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a              | 18/21 [00:28<00:04,  1.48s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  90%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c         | 19/21 [00:30<00:03,  1.57s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata:  95%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e    | 20/21 [00:31<00:01,  1.62s/it]"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rRetrieving metadata: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 21/21 [00:33<00:00,  1.56s/it]\rRetrieving metadata: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 21/21 [00:33<00:00,  1.59s/it]\n"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "Classified 7 structures as ER-alpha\nClassified 7 structures as ER-beta\nClassified 7 structures as ER-complex\n\nDownloading ER-alpha structures...\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-alpha:   0%|                                                                                                            | 0/7 [00:00<?, ?it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_alpha/7MSA.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-alpha:  14%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e                                                                                     | 1/7 [00:00<00:03,  1.99it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_alpha/2YJA.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-alpha:  29%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c                                                                       | 2/7 [00:01<00:02,  1.99it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_alpha/6VPF.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-alpha:  43%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a                                                         | 3/7 [00:01<00:02,  1.99it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_alpha/3DT3.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-alpha:  57%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258f                                          | 4/7 [00:02<00:01,  1.99it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_alpha/2OUZ.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-alpha:  71%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258d                            | 5/7 [00:02<00:01,  1.99it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_alpha/7QVJ.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-alpha:  86%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258b              | 6/7 [00:03<00:00,  1.98it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_alpha/1A52.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-alpha: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 7/7 [00:03<00:00,  1.98it/s]\rDownloading ER-alpha: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 7/7 [00:03<00:00,  1.98it/s]\n"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "\nDownloading ER-beta structures...\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-beta:   0%|                                                                                                             | 0/7 [00:00<?, ?it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_beta/3OLS.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-beta:  14%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258d                                                                                      | 1/7 [00:00<00:03,  1.94it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_beta/6LIT.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-beta:  29%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258a                                                                        | 2/7 [00:01<00:02,  1.96it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_beta/2YLY.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-beta:  43%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258e                                                         | 3/7 [00:01<00:02,  1.97it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_beta/1NDE.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-beta:  57%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258b                                           | 4/7 [00:02<00:01,  1.97it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_beta/2YJD.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-beta:  71%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258f                            | 5/7 [00:02<00:01,  1.98it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_beta/1U3S.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-beta:  86%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u258c              | 6/7 [00:03<00:00,  1.98it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_beta/1U3R.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-beta: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 7/7 [00:03<00:00,  1.98it/s]\rDownloading ER-beta: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 7/7 [00:03<00:00,  1.97it/s]\n"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "\nDownloading ER-complex structures...\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-complex:   0%|                                                                                                          | 0/7 [00:00<?, ?it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_complex/3OSA.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-complex:  14%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588                                                                                    | 1/7 [00:00<00:03,  1.99it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_complex/3OMP.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-complex:  29%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588                                                                      | 2/7 [00:01<00:02,  1.99it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_complex/6SBO.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-complex:  43%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588                                                        | 3/7 [00:01<00:02,  1.99it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_complex/3OMQ.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-complex:  57%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588                                          | 4/7 [00:02<00:01,  1.99it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_complex/3OS9.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-complex:  71%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588                            | 5/7 [00:02<00:01,  1.99it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_complex/3OS8.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-complex:  86%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588              | 6/7 [00:03<00:00,  1.99it/s]"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "File ../data/pdb/er_complex/3OMO.pdb already exists. Skipping download.\n"
+        },
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "\rDownloading ER-complex: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 7/7 [00:03<00:00,  1.99it/s]\rDownloading ER-complex: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 7/7 [00:03<00:00,  1.99it/s]\n"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "\nDownloaded 21 PDB files to ../data/pdb\n\nDownload Summary:\nTotal structures: 21\nER-alpha: 7 structures\nER-beta: 7 structures\nER-complex: 7 structures\n"
+        }
+      ]
+    },
+    {
+      "id": "MJUe",
+      "code_hash": "100d4da4a0a916ea295b050790a35e86",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "88021bac5915ae6d0e1e8fb7e435a200",
+      "outputs": [],
+      "console": []
+    }
+  ]
+}
