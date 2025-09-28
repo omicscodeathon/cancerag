@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: cancerag
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: >=3.13
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: biopython>=1.85
+Requires-Dist: biotite>=1.4.0
+Requires-Dist: black>=25.1.0
+Requires-Dist: chembl-webresource-client>=0.10.9
+Requires-Dist: ipywidgets>=8.1.7
+Requires-Dist: jupyter>=1.1.1
+Requires-Dist: nglview>=3.1.4
+Requires-Dist: numpy>=2.3.3
+Requires-Dist: pandas>=2.3.2
+Requires-Dist: py3dmol>=2.5.2
+Requires-Dist: rdkit>=2025.3.6
+Requires-Dist: scikit-learn>=1.7.2
+Requires-Dist: seaborn>=0.13.2
+Requires-Dist: matplotlib>=3.10.2
+Requires-Dist: tqdm>=4.67.1
+Requires-Dist: xmltodict>=1.0.0
+Dynamic: license-file

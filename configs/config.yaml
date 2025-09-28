@@ -1,0 +1,45 @@
+# Configuration for the GPCR Signaling Bias Prediction Pipeline
+
+paths:
+  raw_data: 'data/raw'
+  chembl_raw: 'data/raw/chembl' # Directory for raw ChEMBL downloads
+  processed_data: 'data/processed'
+  interim_data: 'data/interim'
+  models: 'results/models'
+  figures: 'results/figures'
+  reports: 'results/reports'
+  biasdb_input: 'data/raw/biasdb_data.csv'
+  pdb_summary: 'data/pdb' # Directory to save PDB files and summary
+
+data_collection:
+  max_pdb_files_per_receptor: 10
+  # Parameters for fetching additional unbiased ligands
+  chembl_activity_type: 'IC50'
+  max_unbiased_ligands_per_receptor: 500
+
+preprocessing:
+  activity_threshold_nm: 1000
+  lipinski_strict: false
+  tpsa_max: 140
+  rotatable_bonds_max: 10
+
+docking:
+  # Vina parameters - optimized for speed
+  exhaustiveness: 4 # Reduced from 8 for faster execution
+  num_modes: 3 # Reduced from 9 for faster execution
+  num_cpu: 4 # Reduced CPU usage
+
+  # Binding site definition (can be overridden per receptor)
+  # This is a generic fallback if a specific site isn't defined.
+  # In practice, we'll need a better way to define this, e.g., from GPCRdb
+  default_binding_site:
+    size_x: 25.0
+    size_y: 25.0
+    size_z: 25.0
+
+ml_model:
+  test_size: 0.05
+  random_state: 42
+  # Parameters for RandomForest or GradientBoosting
+  n_estimators: 100
+  max_depth: 10

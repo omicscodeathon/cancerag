@@ -1,0 +1,16 @@
+biopython>=1.85
+biotite>=1.4.0
+black>=25.1.0
+chembl-webresource-client>=0.10.9
+ipywidgets>=8.1.7
+jupyter>=1.1.1
+nglview>=3.1.4
+numpy>=2.3.3
+pandas>=2.3.2
+py3dmol>=2.5.2
+rdkit>=2025.3.6
+scikit-learn>=1.7.2
+seaborn>=0.13.2
+matplotlib>=3.10.2
+tqdm>=4.67.1
+xmltodict>=1.0.0

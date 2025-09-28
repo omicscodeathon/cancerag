@@ -1,0 +1,108 @@
+CANCERAG PIPELINE FLOW DIAGRAM
+================================
+
+1. CONFIGURATION LOADING
+   └── config.yaml → Main Pipeline
+       ├── paths (data directories)
+       ├── data_collection parameters
+       ├── preprocessing parameters
+       ├── docking parameters
+       └── ml_model parameters
+
+2. DATA COLLECTION STAGE
+   ├── BiasDB Retriever
+   │   └── Downloads biased ligands → biasdb_data.csv
+   ├── PDB Retriever
+   │   └── Downloads receptor structures → data/pdb/
+   └── ChEMBL Retriever [COMMENTED OUT]
+       └── Would download unbiased agonists → data/raw/chembl/
+
+3. PREPROCESSING STAGE
+   ├── Ligand Preprocessor
+   │   └── Standardizes SMILES → unified_ligands.csv
+   └── Receptor Preprocessor
+       └── Cleans PDB files → data/processed/receptors/
+
+4. FEATURE EXTRACTION STAGE
+   ├── Molecular Descriptors
+   │   └── Calculates ~200 RDKit descriptors → ligands_with_descriptors.csv
+   └── Active Site Identifier
+       ├── Evaluates PDB structures
+       ├── Selects best structure per receptor
+       ├── Identifies binding sites from co-crystallized ligands
+       └── Saves binding_sites.json + structure_selection_summary.json
+
+5. MOLECULAR DOCKING STAGE
+   ├── Docking Pipeline
+   │   ├── Prepares 3D ligand structures
+   │   ├── Loads receptor structures
+   │   ├── Loads binding sites
+   │   └── Runs AutoDock Vina
+   └── Results → docking_results/
+
+6. MACHINE LEARNING STAGE [TO BE IMPLEMENTED]
+   ├── Feature Assembly
+   │   └── Combines descriptors + docking scores
+   ├── Data Splitting
+   │   └── Stratified train/test split
+   ├── Feature Selection
+   │   └── Boruta algorithm
+   ├── Model Training
+   │   ├── Random Forest
+   │   ├── XGBoost
+   │   └── CatBoost
+   └── Model Evaluation
+       └── Cross-validation + test set evaluation
+
+OPTIONAL: UNBIASED AGONIST ADDITION
+===================================
+When needed, uncomment in main.py:
+├── UnbiasedAgonistAdder
+│   ├── Fetches agonists from ChEMBL
+│   ├── Filters out duplicates (SMILES from BiasDB)
+│   ├── Creates "Pure Agonist" class
+│   └── Saves unbiased_agonists.csv
+└── Joins with biased dataset for ML
+
+KEY FILES AND THEIR PURPOSES
+============================
+
+INPUT FILES:
+- config.yaml: Configuration parameters
+- data/raw/biasdb_data.csv: Biased ligands from BiasDB
+
+INTERMEDIATE FILES:
+- data/pdb/summary.json: PDB download summary
+- data/processed/unified_ligands.csv: Cleaned ligands
+- data/processed/receptors/: Cleaned PDB structures
+- data/processed/ligands_with_descriptors.csv: Ligands + molecular descriptors
+- data/processed/binding_sites.json: Binding site coordinates
+- data/processed/structure_selection_summary.json: Structure selection rationale
+
+OUTPUT FILES:
+- results/docking_results/: Docking scores and poses
+- results/models/: Trained ML models
+- results/reports/: Analysis reports
+
+UTILITY FILES:
+- data/processed/ligand_receptor_mapping.json: Maps ligands to receptors
+- data/processed/unbiased_agonists.csv: [Optional] Unbiased agonists
+- data/processed/mapping_coverage_stats.json: Coverage statistics
+
+CURRENT STATUS
+==============
+✅ COMPLETED:
+- Data collection (BiasDB + PDB)
+- Ligand preprocessing
+- Receptor preprocessing
+- Molecular descriptor calculation
+- Enhanced active site identification
+- Receptor-ligand mapping
+
+🔄 IN PROGRESS:
+- Molecular docking pipeline
+
+📝 PLANNED:
+- Machine learning implementation
+- Unbiased agonist addition (when needed)
+- Results visualization

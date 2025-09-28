@@ -1,0 +1,154 @@
+# Cancerag Project Plan: A Reproducible Pipeline for Biased Agonist Identification
+
+## 1. Project Overview
+
+The goal of this project is to develop a reproducible computational pipeline for the identification and prediction of biased agonists for G-protein-coupled receptors (GPCRs). The pipeline will integrate data from multiple sources, perform molecular docking, extract a comprehensive set of features, and apply both unsupervised and supervised machine learning techniques to classify ligands based on their signaling bias.
+
+A key challenge in this project is managing the complex data flow and ensuring that every step is traceable. We will maintain clear data provenance by crosslinking files and logging transformations from raw data to final predictions.
+
+## 2. Data Collection and Preprocessing
+
+This phase focuses on gathering and preparing the necessary ligand and receptor data.
+
+### 2.1. Base Data: BiasDB
+
+- **Source:** The initial dataset is downloaded from [BiasDB](https://biasdb.drug-design.de/).
+- **Implementation:** The script `@src/cancerag/data_collection/biasdb_retriever.py` handles the download and initial formatting.
+- **Output:** `data/raw/biasdb_data.csv`. This file contains ligands with known bias categories, forming the core of our labeled dataset.
+
+### 2.2. Receptor Structure Acquisition
+
+- **Process:**
+    1. Identify all unique receptors present in the `biasdb_data.csv`.
+    2. For each unique receptor, query the Protein Data Bank (PDB) to download available 3D structures.
+- **Output:** PDB files will be stored in categorized directories under `data/pdb/`.
+
+### 2.3. Supplemental Data: ChEMBL Agonists
+
+- **Purpose:** To augment our dataset with a class of "pure agonists" (i.e., not biased), providing a clear baseline for the models to learn from.
+- **Process:**
+    1. For each unique receptor identified from BiasDB, query the ChEMBL database for known agonists.
+    2. Filter these molecules to ensure they are high-quality, potent agonists.
+- **Output:** Raw data will be stored in `data/raw/chembl/`.
+
+### 2.4. Ligand and Receptor Cleaning
+
+- **Ligands:** All molecules from BiasDB and ChEMBL will be standardized. This includes neutralizing charges, removing salts, and generating a canonical SMILES representation.
+- **Receptors:** PDB structures will be cleaned by removing water molecules, adding hydrogen atoms, and preparing them for docking.
+
+## 3. Feature Extraction
+
+This phase generates the feature set that will be used for machine learning.
+
+### 3.1. Ligand Feature Extraction
+
+- **Molecular Descriptors:** For every ligand, we will calculate a wide range of 2D and 3D molecular descriptors (approximately 200). These will include properties related to size, polarity, flexibility, and topology (e.g., LogP, TPSA, number of rotatable bonds, molecular weight).
+
+### 3.2. Receptor Feature Extraction
+
+- **Receptor Descriptors:** We will calculate descriptors for the receptor's binding pocket. This can include features describing the volume, shape, and physicochemical properties (e.g., hydrophobicity, charge distribution) of the active site. This provides the model with context about the environment the ligand is binding to.
+
+### 3.3. Molecular Docking
+
+#### 3.3.1. Active Site Identification
+
+- **Methodology:** Instead of relying on a generic binding site definition in `configs/config.yaml`, we will dynamically identify the active site for each receptor structure.
+- **Implementation:** We will use `obabel` or a similar tool to locate the co-crystallized ligand within the PDB file. The coordinates and dimensions of this ligand's binding location will be used to define the docking box. This approach is based on the assumption that the co-crystallized ligand marks the biologically relevant active site.
+
+#### 3.3.2. Handling Multiple Receptor Structures
+
+- **Challenge:** A single receptor may have multiple PDB structures, leading to redundant docking calculations.
+- **Proposed Solution:** To manage this, we will implement a selection or consensus strategy:
+    1. **Primary Strategy (Best Structure):** For each receptor, select the PDB structure with the best resolution and completeness. If a co-crystallized ligand is present, prioritize that structure. All docking for that receptor will proceed with this single, high-quality structure.
+    2. **Secondary Strategy (Consensus Score):** If multiple high-quality structures exist, dock the ligands against each one. The final docking score for a given ligand-receptor pair could be the best (lowest) energy score obtained across all structures. This is more computationally intensive but robust.
+
+We will start with the **Primary Strategy** to maintain efficiency.
+
+#### 3.3.3. Docking Execution
+
+- **Tool:** We will use the command-line version of **AutoDock Vina**.
+- **Process:** Each ligand will be docked into the defined active site of its corresponding target receptor.
+- **Output (Docking Features):** The primary result from Vina is the **binding affinity score** (in kcal/mol), which quantifies the predicted strength of the ligand-receptor interaction. We will also capture other metrics if available. These scores will be a critical part of our final feature set.
+
+### 3.4. Final Dataset Assembly
+
+- **Process:** All extracted features will be collated into a single, master CSV file.
+- **Columns:**
+  - Ligand ID / SMILES
+  - Receptor ID
+  - Molecular Descriptors (200+)
+  - Receptor Pocket Descriptors
+  - Docking Score
+  - Target Class (Bias Category / Pure Agonist)
+
+## 4. Machine Learning Pipeline
+
+### 4.1. Unsupervised Learning: Cluster Analysis
+
+- **Objective:** To determine if the generated features can intrinsically separate the ligands into meaningful clusters without using the predefined labels.
+- **Methodology:**
+    1. **Algorithm:** We will use K-Means clustering.
+    2. **Optimal Cluster Number:** The optimal number of clusters (`k`) will be determined using the **Elbow Method** and **Silhouette Score**.
+    3. **Evaluation:** We will compare the resulting clusters with the original data labels (from BiasDB and ChEMBL) using metrics like the Adjusted Rand Index. A high similarity would indicate that our feature set is highly representative of the underlying biological differences.
+
+### 4.2. Supervised Learning: Bias Prediction
+
+- **Objective:** To train a classification model that can accurately predict the bias category of a ligand.
+- **Data Splitting:**
+  - The dataset will be split into training, validation, and testing sets.
+  - We will use **stratified splitting** to ensure that all classes (including the "pure agonist" class) are proportionally represented in each subset. This is crucial for preventing model bias.
+- **Feature Selection:**
+  - **Method:** We will use the **Boruta algorithm**, a powerful wrapper method based on Random Forest, to identify the most relevant features for prediction. This helps reduce model complexity and improve performance.
+- **Model Training and Selection:**
+  - **Algorithms:** We will train and evaluate a suite of models, including:
+    - Logistic Regression (as a baseline)
+    - Random Forest
+    - XGBoost
+    - CatBoost
+  - **Evaluation:** Models will be compared based on metrics such as Accuracy, Precision, Recall, F1-Score, and AUC-ROC, using the validation set. The best-performing model will be selected for final evaluation.
+- **Final Model Evaluation:**
+  - The chosen model will be evaluated on the held-out test set to provide an unbiased estimate of its performance in predicting biased agonism.
+
+## 5. Coding and Development Guidelines
+
+To ensure the codebase is clean, maintainable, and consistent, all development should adhere to the following guidelines.
+
+### 5.1. Code Style
+
+- **PEP 8:** All Python code must follow the [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guide.
+- **Formatter:** Code should be formatted using a tool like `black` or `ruff format` to ensure uniform style.
+- **Linter:** A linter such as `ruff` or `pylint` should be used to catch style issues and potential errors.
+
+### 5.2. Type Hinting
+
+- **Mandatory Typing:** All function and method signatures, including arguments and return values, must include type hints as specified in [PEP 484](https://www.python.org/dev/peps/pep-0484/).
+- **Clarity:** Use clear and specific types (e.g., `list[str]` instead of `list`). For complex types, use the `typing` module.
+
+### 5.3. Modularity and Reusability
+
+- **Single Responsibility:** Functions and classes should adhere to the Single Responsibility Principle. Each unit of code should do one thing and do it well.
+- **Keep it DRY:** Follow the "Don't Repeat Yourself" principle. Reusable logic should be encapsulated in functions or classes.
+- **Organization:** Code should be logically organized into modules and packages as outlined in the project structure.
+
+### 5.4. Configuration Management
+
+- **No Hardcoding:** Avoid hardcoding file paths, hyperparameters, or other "magic" values. All configurable parameters must be stored in and loaded from `configs/config.yaml`.
+- **Accessibility:** The configuration should be loaded once at the start of the pipeline and passed to the components that need it.
+
+### 5.5. Logging
+
+- **Use `logging` Module:** All informational messages, warnings, errors, and debug information should be handled by Python's built-in `logging` module.
+- **No `print()`:** Avoid using `print()` for output in the library code. `print()` is only acceptable in CLI entry points for user-facing output.
+- **Log Levels:** Use appropriate log levels (e.g., `INFO` for pipeline progress, `WARNING` for recoverable issues, `ERROR` for critical failures).
+
+### 5.6. Documentation
+
+- **Docstrings:** All modules, classes, functions, and methods must have comprehensive docstrings (e.g., Google, NumPy, or Sphinx style).
+- **Clarity:** Docstrings should clearly explain the purpose of the code, its arguments, what it returns, and any exceptions it might raise.
+- **Comments:** Use inline comments sparingly, only to explain complex or non-obvious parts of the code.
+
+### 5.7. Testing
+
+- **Unit Tests:** Every function and class should have corresponding unit tests.
+- **Coverage:** Aim for high test coverage to ensure the reliability of the code.
+- **Location:** Tests should be placed in the `tests/` directory, mirroring the structure of the `src/` directory.

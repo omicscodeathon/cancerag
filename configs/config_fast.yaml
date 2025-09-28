@@ -1,0 +1,42 @@
+# Fast Configuration for Testing - Optimized for Speed
+# This configuration reduces computational load for quick testing
+
+paths:
+  raw_data: 'data/raw'
+  chembl_raw: 'data/raw/chembl'
+  processed_data: 'data/processed'
+  interim_data: 'data/interim'
+  models: 'results/models'
+  figures: 'results/figures'
+  reports: 'results/reports'
+  biasdb_input: 'data/raw/biasdb_data.csv'
+  pdb_summary: 'data/pdb'
+
+data_collection:
+  max_pdb_files_per_receptor: 3 # Reduced from 10
+  chembl_activity_type: 'IC50'
+  max_unbiased_ligands_per_receptor: 50 # Reduced from 500
+
+preprocessing:
+  activity_threshold_nm: 1000
+  lipinski_strict: false
+  tpsa_max: 140
+  rotatable_bonds_max: 10
+
+docking:
+  # Vina parameters - optimized for speed
+  exhaustiveness: 2 # Reduced from 4 (faster but less thorough)
+  num_modes: 1 # Reduced from 3 (only best pose)
+  num_cpu: 8 # Increased CPU usage
+
+  # Binding site definition
+  default_binding_site:
+    size_x: 20.0 # Reduced from 25.0
+    size_y: 20.0
+    size_z: 20.0
+
+ml_model:
+  test_size: 0.05
+  random_state: 42
+  n_estimators: 50 # Reduced from 100
+  max_depth: 5 # Reduced from 10
