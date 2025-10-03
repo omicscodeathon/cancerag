@@ -64,6 +64,7 @@ Thumbs.db
 *.pdb
 *.pdbqt
 *.mol2
+*.mol
 
 # Analysis outputs
 *.png
