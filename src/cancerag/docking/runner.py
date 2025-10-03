@@ -1,4 +1,5 @@
 import os
+from cancerag.utils.receptor_mapper import ReceptorMapper
 import subprocess
 from concurrent.futures import ProcessPoolExecutor
 from tqdm import tqdm
@@ -95,7 +96,7 @@ def run_docking_multiprocess(
             else:
                 print(f"⚠️  Warning: No target receptor found for ligand {ligand_name}")
         
-        print(f"\n📊 DOCKING SUMMARY:")
+        print("\n📊 DOCKING SUMMARY:")
         print(f"Total ligands: {len(prepared_ligands)}")
         print(f"Receptors with ligands: {len(ligands_by_receptor)}")
         
@@ -124,6 +125,11 @@ def run_docking_multiprocess(
             for ligand in receptor_ligands:
                 out_file = os.path.join(receptor_outdir, f"{ligand['name']}_docked.pdbqt")
                 log_file = os.path.join(receptor_outdir, f"{ligand['name']}_log.txt")
+
+                # Skip if docking results already exist
+                if os.path.exists(out_file) and os.path.getsize(out_file) > 0:
+                    print(f"    - Skipping {ligand['name']} (results already exist)")
+                    continue
 
                 # The command is now a single f-string for clarity and direct shell execution.
                 # Redirection `>` and `2>&1` handles capturing all output to the log file.
@@ -181,6 +187,11 @@ def run_docking_multiprocess(
                 out_file = os.path.join(receptor_outdir, f"{ligand['name']}_docked.pdbqt")
                 log_file = os.path.join(receptor_outdir, f"{ligand['name']}_log.txt")
 
+                # Skip if docking results already exist
+                if os.path.exists(out_file) and os.path.getsize(out_file) > 0:
+                    print(f"    - Skipping {ligand['name']} (results already exist)")
+                    continue
+
                 cmd = (
                     f"vina --receptor '{receptor_pdbqt}' --ligand '{ligand['pdbqt_file']}' "
                     f"--center_x {binding_site['center_x']} --center_y {binding_site['center_y']} --center_z {binding_site['center_z']} "
@@ -225,14 +236,15 @@ def create_ligand_receptor_mapping(ligands_df):
         dict: Maps ligand names to receptor names
     """
     mapping = {}
+    # Reuse the same normalization logic as the pipeline utilities to stay in sync with main.py
+    mapper = ReceptorMapper()
     
     for _, row in ligands_df.iterrows():
         ligand_name = row.get('ligand_name', f"ligand_{row.name}")
         receptor_subtype = row.get('receptor_subtype', '')
         
         if receptor_subtype:
-            # Normalize receptor name to match the binding sites format
-            normalized_receptor = receptor_subtype.lower().replace(' ', '_').replace('-', '_')
+            normalized_receptor = mapper._normalize_receptor_name(receptor_subtype)
             mapping[ligand_name] = normalized_receptor
     
     return mapping

@@ -30,8 +30,6 @@ docking:
   num_cpu: 4 # Reduced CPU usage
 
   # Binding site definition (can be overridden per receptor)
-  # This is a generic fallback if a specific site isn't defined.
-  # In practice, we'll need a better way to define this, e.g., from GPCRdb
   default_binding_site:
     size_x: 25.0
     size_y: 25.0

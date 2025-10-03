@@ -17,8 +17,8 @@ Usage:
 import json
 import os
 import logging
-from pathlib import Path
 import pandas as pd
+from rich import print
 
 # Configure logging
 logging.basicConfig(
@@ -126,8 +126,12 @@ class ReceptorAnalyzer:
                                 if resolution < receptor_info["best_resolution"]:
                                     receptor_info["best_resolution"] = resolution
                                     receptor_info["best_pdb_id"] = pdb_id
-                            except:
-                                pass
+                            except Exception as e:
+                                # Gracefully handle cases where resolution is not a float (e.g., "NOT APPLICABLE")
+                                logger.warning(
+                                    f"Could not parse resolution from line: '{line}'. Skipping this entry. Original error: {e}"
+                                )
+                                continue
 
             analysis_results.append(receptor_info)
 

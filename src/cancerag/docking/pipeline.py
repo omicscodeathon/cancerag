@@ -1,5 +1,6 @@
 import os
 import multiprocessing
+import pandas as pd
 from rdkit import Chem
 from . import preparation, runner, analysis, reporting
 
@@ -88,18 +89,29 @@ class DockingPipeline:
 
         # 3. Parse and Analyze Results
         print("\nStep 3: Parsing and Analyzing Docking Results...")
-        self.parsed_docking_results = {
-            receptor: analysis.parse_docking_results(results)
-            for receptor, results in self.raw_docking_results.items()
-        }
-        self.affinity_df = analysis.compare_receptor_affinities(
-            self.parsed_docking_results
-        )
-
-        # Save the final affinity comparison dataframe
+        
+        # Check if affinity comparison already exists
         affinity_csv_path = os.path.join(self.output_dir, "affinity_comparison.csv")
-        self.affinity_df.to_csv(affinity_csv_path)
-        print(f"  - Saved final affinity comparison to {affinity_csv_path}")
+        if os.path.exists(affinity_csv_path):
+            print(f"  - Using existing affinity comparison: {affinity_csv_path}")
+            self.affinity_df = pd.read_csv(affinity_csv_path, index_col=0)
+            # Still need parsed results for visualization
+            self.parsed_docking_results = {
+                receptor: analysis.parse_docking_results(results)
+                for receptor, results in self.raw_docking_results.items()
+            }
+        else:
+            self.parsed_docking_results = {
+                receptor: analysis.parse_docking_results(results)
+                for receptor, results in self.raw_docking_results.items()
+            }
+            self.affinity_df = analysis.compare_receptor_affinities(
+                self.parsed_docking_results
+            )
+
+            # Save the final affinity comparison dataframe
+            self.affinity_df.to_csv(affinity_csv_path)
+            print(f"  - Saved final affinity comparison to {affinity_csv_path}")
 
         # 4. Generate Report and Visualizations
         print("\nStep 4: Generating Reports and Visualizations...")

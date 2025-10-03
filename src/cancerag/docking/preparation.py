@@ -25,6 +25,15 @@ def prepare_receptors(receptor_structures: dict, output_dir: str) -> dict:
             print(f"  - ERROR: Receptor PDB file not found: {pdb_file}")
             continue
 
+        # Check if PDBQT already exists and is newer than source PDB
+        if os.path.exists(output_pdbqt):
+            pdb_mtime = os.path.getmtime(pdb_file)
+            pdbqt_mtime = os.path.getmtime(output_pdbqt)
+            if pdbqt_mtime > pdb_mtime:
+                print(f"  - Using existing PDBQT: {receptor_name}")
+                prepared_receptors[receptor_name] = output_pdbqt
+                continue
+
         try:
             cmd = [
                 "obabel",
@@ -69,15 +78,26 @@ def prepare_ligands(ligands: list, output_dir: str) -> list:
             
         # Additional safety check
         try:
-            mol_name = (
-                mol.GetProp("ChEMBL_ID") if mol.HasProp("ChEMBL_ID") else f"ligand_{idx}"
-            )
+            # Prefer the SDF record name set as _Name during preparation; fall back to ChEMBL_ID; else index-based name
+            if mol.HasProp("_Name"):
+                mol_name = mol.GetProp("_Name")
+            elif mol.HasProp("ChEMBL_ID"):
+                mol_name = mol.GetProp("ChEMBL_ID")
+            else:
+                mol_name = f"ligand_{idx}"
         except AttributeError:
             print(f"  - Skipping ligand {idx}: Invalid molecule object")
             continue
 
         mol_file = os.path.join(ligand_dir, f"{mol_name}.mol")
         pdbqt_file = os.path.join(ligand_dir, f"{mol_name}.pdbqt")
+
+        # Check if ligand PDBQT already exists
+        if os.path.exists(pdbqt_file):
+            prepared_ligands.append(
+                {"mol_idx": idx, "name": mol_name, "pdbqt_file": pdbqt_file}
+            )
+            continue
 
         Chem.MolToMolFile(mol, mol_file)
 

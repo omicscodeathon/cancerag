@@ -3,165 +3,394 @@
 [![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-CancerAg is a computational framework designed to identify and predict biased agonism in G-protein-coupled receptors (GPCRs). This project provides a fully reproducible pipeline that automates data collection, molecular docking, feature engineering, and machine learning to classify ligands based on their signaling pathways.
+CancerAg is a comprehensive computational framework designed to identify and predict biased agonism in G-protein-coupled receptors (GPCRs) for cancer drug discovery. This project provides a fully reproducible pipeline that automates data collection, molecular docking, feature engineering, and machine learning to classify ligands based on their signaling pathway selectivity.
 
-## ✨ Features
+## 📖 Introduction to Biased Agonism
 
--   **Automated Data Collection:** Gathers data from BiasDB, PDB, and ChEMBL to build a comprehensive dataset.
--   **Dynamic Active Site Identification:** Uses co-crystallized ligands to accurately define docking sites, avoiding generic coordinates.
--   **Robust Feature Engineering:** Calculates over 200 molecular descriptors for ligands and characterizes receptor binding pockets.
--   **Integrated Molecular Docking:** Utilizes AutoDock Vina to predict ligand binding affinities.
--   **Hybrid Machine Learning Approach:** Employs both unsupervised clustering to discover natural data separations and supervised learning for predictive classification.
--   **Advanced Model Training:** Implements powerful feature selection with Boruta and trains multiple state-of-the-art models (XGBoost, CatBoost, RandomForest).
--   **Reproducibility:** The entire pipeline is configurable and scriptable, ensuring consistent results.
+### What is Biased Agonism?
 
-## 🏗️ Pipeline Architecture
+Biased agonism, also known as functional selectivity, is a phenomenon where different ligands binding to the same G-protein-coupled receptor (GPCR) can activate distinct intracellular signaling pathways to varying degrees. Unlike traditional agonists that activate all downstream pathways equally, biased agonists can selectively activate specific signaling cascades while avoiding others.
 
-The project is organized into four main stages, flowing from raw data collection to final model evaluation.
+### GPCR Signaling Pathways
+
+GPCRs are the largest family of membrane receptors and are crucial for cellular communication. Upon ligand binding, GPCRs can activate multiple downstream pathways:
+
+1. **G Protein-Dependent Pathways:**
+   - **Gαs**: Activates adenylyl cyclase → increases cAMP → PKA activation
+   - **Gαi/o**: Inhibits adenylyl cyclase → decreases cAMP
+   - **Gαq/11**: Activates phospholipase C → IP3 and DAG production → PKC activation
+   - **Gα12/13**: Activates RhoA signaling
+
+2. **G Protein-Independent Pathways:**
+   - **β-Arrestin**: Scaffolding protein that can activate MAPK, PI3K/Akt, and other pathways
+   - **GPCR Kinases (GRKs)**: Phosphorylate receptors leading to desensitization
+
+### The Biased Agonism Concept
+
+A biased agonist might, for example:
+
+- **G Protein-Biased**: Strongly activate G protein signaling while weakly activating β-arrestin pathways
+- **β-Arrestin-Biased**: Preferentially activate β-arrestin-mediated signaling over G protein pathways
+- **Pathway-Specific**: Selectively activate specific G protein subtypes (e.g., Gαs over Gαq)
+
+## 🎯 Problems Biased Agonism Solves
+
+### 1. **Side Effect Reduction**
+
+Traditional GPCR drugs often cause unwanted side effects because they activate all available signaling pathways. Biased agonists can:
+
+- **Minimize adverse effects** by avoiding pathways associated with toxicity
+- **Improve therapeutic windows** by separating desired effects from side effects
+- **Enable dose optimization** without compromising efficacy
+
+### 2. **Enhanced Therapeutic Specificity**
+
+- **Target specific disease mechanisms** by activating only relevant pathways
+- **Avoid compensatory mechanisms** that can lead to drug resistance
+- **Provide precision medicine approaches** for patient-specific treatments
+
+### 3. **Drug Development Challenges**
+
+- **High failure rates** in clinical trials due to unexpected side effects
+- **Limited efficacy** of broad-acting compounds
+- **Complex dose-response relationships** due to multiple pathway activation
+
+## 🏥 Applications in Cancer Therapy
+
+### GPCRs in Cancer Biology
+
+GPCRs play critical roles in cancer progression through multiple mechanisms:
+
+1. **Cell Proliferation**: Many GPCRs activate growth-promoting pathways (MAPK, PI3K/Akt)
+2. **Angiogenesis**: GPCR signaling regulates vascular endothelial growth factor (VEGF) production
+3. **Metastasis**: GPCRs control cell migration and invasion
+4. **Immune Evasion**: GPCR signaling affects tumor microenvironment interactions
+5. **Drug Resistance**: GPCR pathways can confer resistance to chemotherapy
+
+### Therapeutic Opportunities with Biased Agonists
+
+#### **GPER (G Protein-Coupled Estrogen Receptor)**
+
+- **Problem**: Traditional estrogen receptor modulators have mixed effects on cancer progression
+- **Solution**: GPER-biased agonists can selectively activate anti-tumor pathways while avoiding pro-tumor effects
+- **Example**: G1 (GPER-selective agonist) shows anti-proliferative effects in breast cancer
+
+#### **Adrenergic Receptors**
+
+- **Problem**: β-blockers used in cancer therapy can cause cardiovascular side effects
+- **Solution**: β-arrestin-biased agonists can provide anti-metastatic effects without cardiovascular complications
+- **Application**: Reducing cancer cell migration and invasion
+
+#### **Chemokine Receptors**
+
+- **Problem**: Broad chemokine receptor antagonists affect immune function
+- **Solution**: Pathway-specific modulation can target tumor-promoting chemokine signaling
+- **Benefit**: Maintain immune surveillance while blocking tumor-supporting pathways
+
+## 🔬 Challenges in Biased Agonist Identification
+
+### 1. **Experimental Limitations**
+
+- **High-throughput screening complexity**: Traditional assays measure single endpoints
+- **Cell-type specificity**: Biased responses vary across cell lines and tissues
+- **Temporal dynamics**: Different pathways have different activation kinetics
+- **Concentration dependence**: Bias can change with ligand concentration
+
+### 2. **Structural Understanding**
+
+- **Limited structural data**: Few GPCR-ligand complexes with biased agonists solved
+- **Dynamic conformations**: GPCRs adopt multiple conformations affecting pathway selectivity
+- **Allosteric modulation**: Biased ligands may bind to different receptor conformations
+
+### 3. **Computational Challenges**
+
+- **Feature complexity**: Molecular properties affecting bias are poorly understood
+- **Data scarcity**: Limited experimental data on biased vs. unbiased ligands
+- **Prediction accuracy**: Current methods struggle with bias prediction
+
+### 4. **Validation Difficulties**
+
+- **Assay standardization**: No universal protocol for measuring bias
+- **Quantitative metrics**: Bias quantification methods vary across studies
+- **Reproducibility**: Results can vary between laboratories and conditions
+
+## 🤖 Our Machine Learning-Based Approach
+
+### Methodology Overview
+
+Our pipeline addresses these challenges through a comprehensive computational approach that integrates:
+
+1. **Multi-source data integration** from BiasDB, ChEMBL, and PDB
+2. **Advanced feature engineering** combining ligand and receptor properties
+3. **Structure-based molecular docking** for interaction prediction
+4. **Hybrid machine learning** using both unsupervised and supervised approaches
+
+### Pipeline Architecture
 
 ```mermaid
 graph TD
-    subgraph A[1. Data Collection]
-        A1[Download BiasDB Data] --> A2{Get Unique Receptors};
-        A2 --> A3[Download PDB Structures];
-        A2 --> A4[Download ChEMBL Agonists];
+    subgraph A[1. Data Collection & Integration]
+        A1[Download BiasDB Data] --> A2{Extract Unique Receptors}
+        A2 --> A3[Download PDB Structures]
+        A2 --> A4[Download ChEMBL Agonists]
+        A3 --> A5[Structure Quality Assessment]
+        A4 --> A6[Drug-likeness Filtering]
     end
 
-    subgraph B[2. Preprocessing & Feature Extraction]
-        A3 --> B1[Clean Receptors];
-        A4 --> B2[Clean Ligands];
-        A1 --> B2;
-        B1 --> B3[Identify Active Sites];
-        B1 --> B4[Calculate Receptor Descriptors];
-        B2 --> B5[Calculate Ligand Descriptors];
+    subgraph B[2. Feature Engineering]
+        A5 --> B1[Dynamic Active Site Identification]
+        A6 --> B2[Ligand Standardization]
+        B1 --> B3[Receptor Pocket Descriptors]
+        B2 --> B4[Molecular Descriptors - 200+]
+        B1 & B4 --> B5[Automated Docking with AutoDock Vina]
+        B5 --> B6[Binding Affinity Extraction]
     end
 
-    subgraph C[3. Molecular Docking]
-        B3 --> C1{Define Docking Box};
-        B2 --> C2[Prepare Ligands for Docking];
-        C1 & C2 --> C3[Run AutoDock Vina];
-        C3 --> C4[Extract Binding Affinity];
+    subgraph C[3. Machine Learning Pipeline]
+        B3 & B4 & B6 --> C1[Feature Matrix Assembly]
+        C1 --> C2[Unsupervised Clustering - K-means]
+        C1 --> C3[Supervised Classification]
+        C2 --> C4[Cluster Validation & Analysis]
+        C3 --> C5[Stratified Data Splitting]
+        C5 --> C6[Boruta Feature Selection]
+        C6 --> C7[Multi-Model Training]
+        C7 --> C8[Model Comparison & Selection]
     end
 
-    subgraph D[4. Machine Learning]
-        B4 & B5 & C4 --> D1[Assemble Feature Matrix];
-        D1 --> D2{Unsupervised Clustering};
-        D2 --> D3[Analyze Clusters];
-        D1 --> D4{Supervised Classification};
-        D4 --> D5[Stratified Split];
-        D5 --> D6[Boruta Feature Selection];
-        D6 --> D7[Train & Evaluate Models];
-        D7 --> D8[Select Best Model];
+    subgraph D[4. Validation & Interpretation]
+        C4 & C8 --> D1[Cross-validation Performance]
+        D1 --> D2[Feature Importance Analysis - SHAP]
+        D2 --> D3[Biological Interpretation]
+        D3 --> D4[Pipeline Validation]
     end
 
-    A --> B --> C --> D;
+    A --> B --> C --> D
 ```
 
-##  workflows
+### Detailed Methodology
 
-### Data Collection Workflow
+#### **Phase 1: Data Collection and Preprocessing**
 
-This sequence diagram illustrates how the pipeline gathers data from external databases.
+**BiasDB Integration:**
 
-```mermaid
-sequenceDiagram
-    participant P as Pipeline
-    participant BDB as BiasDB
-    participant PDB as Protein Data Bank
-    participant CBL as ChEMBL
+- Downloads comprehensive dataset of experimentally validated biased ligands
+- Extracts receptor-ligand pairs with quantitative bias measurements
+- Standardizes bias classifications across different studies
 
-    P->>BDB: Request all biased ligand data
-    BDB-->>P: Return JSON data
-    P->>P: Parse data, save as biasdb_data.csv
-    P->>P: Extract unique receptor IDs
+**ChEMBL Agonist Collection:**
 
-    loop for each receptor
-        P->>PDB: Query for 3D structures
-        PDB-->>P: Return PDB files
-        P->>CBL: Query for known agonists
-        CBL-->>P: Return agonist molecules
-    end
-```
+- Identifies high-quality, potent agonists for the same receptor targets
+- Provides "unbiased" baseline for comparison
+- Filters for drug-likeness using Lipinski's Rule of Five and PAINS filters
 
-### Machine Learning Workflow
+**PDB Structure Selection:**
 
-This diagram shows the steps involved in the machine learning phase, from feature assembly to model deployment.
+- Downloads high-resolution crystal structures for target receptors
+- Implements quality assessment based on resolution and completeness
+- Selects best available structure per receptor (primary strategy)
 
-```mermaid
-graph TD
-    Start((Start)) --> A[Assemble Final Feature Matrix];
-    A --> B{Split Data};
-    B -- Stratified Train/Test Split --> C[Training Set];
-    B -- Stratified Train/Test Split --> D[Test Set];
-    
-    C --> E[Boruta Feature Selection];
-    E --> F{Train Models};
-    F -- Logistic Regression --> G[Evaluate Model 1];
-    F -- Random Forest --> H[Evaluate Model 2];
-    F -- XGBoost --> I[Evaluate Model 3];
-    F -- CatBoost --> J[Evaluate Model 4];
+#### **Phase 2: Feature Engineering**
 
-    subgraph "Model Evaluation"
-        G & H & I & J --> K[Compare Performance on Validation Set];
-    end
+**Ligand Descriptors (200+ features):**
 
-    K --> L[Select Best Model];
-    L & D --> M[Final Evaluation on Test Set];
-    M --> End((End));
+- **2D Descriptors**: Molecular weight, LogP, TPSA, rotatable bonds, aromatic rings
+- **3D Descriptors**: Molecular volume, surface area, shape descriptors
+- **Pharmacophore Features**: Hydrogen bond donors/acceptors, charged groups
+- **Structural Fingerprints**: Morgan fingerprints, MACCS keys, RDKit descriptors
 
-```
+**Receptor Pocket Analysis:**
+
+- **Volume and Shape**: Binding pocket volume, surface area, shape complementarity
+- **Physicochemical Properties**: Hydrophobicity, charge distribution, polar surface
+- **Residue Composition**: Amino acid frequencies, secondary structure elements
+- **Accessibility Metrics**: Solvent accessibility, buried surface area
+
+**Molecular Docking:**
+
+- **Dynamic Binding Site Definition**: Uses co-crystallized ligands to define docking boxes
+- **Automated Docking**: AutoDock Vina with optimized parameters
+- **Binding Affinity Prediction**: Extracts best docking scores and interaction patterns
+- **Pose Analysis**: Evaluates binding modes and key interactions
+
+#### **Phase 3: Machine Learning Implementation**
+
+**Unsupervised Learning:**
+
+- **K-means Clustering**: Discovers natural groupings in the feature space
+- **Optimal Cluster Selection**: Uses elbow method and silhouette analysis
+- **Validation**: Compares clusters with known BiasDB classifications using Adjusted Rand Index
+
+**Supervised Learning:**
+
+- **Data Splitting**: Stratified train/validation/test split (70/15/15)
+- **Feature Selection**: Boruta algorithm for identifying bias-relevant features
+- **Model Training**: Multiple algorithms:
+  - Logistic Regression (baseline)
+  - Random Forest
+  - XGBoost
+  - CatBoost
+- **Hyperparameter Optimization**: Grid search with cross-validation
+- **Model Selection**: Performance comparison on validation set
+
+**Advanced Analysis:**
+
+- **SHAP Values**: Interpretable feature importance analysis
+- **Feature Interaction Analysis**: Identifies synergistic effects between descriptors
+- **Receptor-Specific Patterns**: Analyzes bias patterns across different GPCR families
+
+#### **Phase 4: Validation and Interpretation**
+
+**Performance Metrics:**
+
+- **Accuracy**: Overall classification performance
+- **Precision/Recall**: Per-class performance for different bias types
+- **F1-Score**: Balanced measure of precision and recall
+- **AUC-ROC**: Area under the receiver operating characteristic curve
+
+**Biological Validation:**
+
+- **Known Biased Ligand Testing**: Validates against experimentally characterized compounds
+- **Scaffold Analysis**: Identifies chemical motifs associated with bias
+- **Pathway Correlation**: Links molecular features to specific signaling pathways
+
+## 📊 Expected Results and Outcomes
+
+### Model Performance Targets
+
+- **Classification Accuracy**: >80% across cross-validation folds
+- **Feature Selection**: Identify 20-50 most important bias-determining features
+- **Receptor Coverage**: Successfully classify ligands across multiple GPCR families
+- **Generalization**: Maintain performance on novel receptor-ligand pairs
+
+### Biological Insights
+
+**Molecular Features Driving Bias:**
+
+- **Size and Shape**: Larger, more rigid ligands tend to show G protein bias
+- **Hydrophobicity**: Specific hydrophobicity ranges associated with pathway selectivity
+- **Charged Groups**: Presence and positioning of charged moieties affect bias
+- **Flexibility**: Rotatable bonds and conformational flexibility correlate with bias
+
+**Receptor-Specific Patterns:**
+
+- **Binding Pocket Characteristics**: Volume and shape of binding sites influence bias
+- **Residue Interactions**: Specific amino acid contacts associated with pathway selectivity
+- **Allosteric Sites**: Identification of secondary binding sites affecting bias
+
+### Clinical Applications
+
+**Drug Discovery Acceleration:**
+
+- **Virtual Screening**: Rapid identification of biased ligands from chemical libraries
+- **Lead Optimization**: Guidance for medicinal chemistry to enhance bias
+- **Off-target Prediction**: Assessment of bias selectivity across receptor families
+
+**Therapeutic Development:**
+
+- **Cancer Treatment**: Biased agonists for GPCRs involved in tumor progression
+- **Side Effect Mitigation**: Compounds with reduced adverse effect profiles
+- **Personalized Medicine**: Patient-specific bias profiles based on genetic variants
+
+## 🏗️ Pipeline Features
+
+- **Automated Data Collection:** Gathers data from BiasDB, PDB, and ChEMBL to build a comprehensive dataset
+- **Dynamic Active Site Identification:** Uses co-crystallized ligands to accurately define docking sites, avoiding generic coordinates
+- **Robust Feature Engineering:** Calculates over 200 molecular descriptors for ligands and characterizes receptor binding pockets
+- **Integrated Molecular Docking:** Utilizes AutoDock Vina to predict ligand binding affinities
+- **Hybrid Machine Learning Approach:** Employs both unsupervised clustering to discover natural data separations and supervised learning for predictive classification
+- **Advanced Model Training:** Implements powerful feature selection with Boruta and trains multiple state-of-the-art models (XGBoost, CatBoost, RandomForest)
+- **Reproducibility:** The entire pipeline is configurable and scriptable, ensuring consistent results
+- **Idempotent Execution:** Smart caching and resume capabilities prevent redundant computations
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
--   Python 3.10+
--   [UV](https://github.com/astral-sh/uv) package manager
--   [AutoDock Vina](http://vina.scripps.edu/download.html)
+- Python 3.10+
+- [UV](https://github.com/astral-sh/uv) package manager
+- [AutoDock Vina](http://vina.scripps.edu/download.html)
+- [OpenBabel](https://openbabel.org/) for molecular format conversion
 
 ### Installation
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/your-username/cancerag.git
-    cd cancerag
-    ```
+1. **Clone the repository:**
 
-2.  **Install Python dependencies using UV:**
-    ```bash
-    uv pip install -r requirements.txt
-    ```
+   ```bash
+   git clone https://github.com/your-username/cancerag.git
+   cd cancerag
+   ```
 
-3.  **Install AutoDock Vina:**
-    Follow the instructions on the [official website](http://vina.scripps.edu/download.html) to install Vina and ensure it is available in your system's PATH.
+2. **Install Python dependencies using UV:**
+
+   ```bash
+   uv pip install -r requirements.txt
+   ```
+
+3. **Install AutoDock Vina:**
+   Follow the instructions on the [official website](http://vina.scripps.edu/download.html) to install Vina and ensure it is available in your system's PATH.
+
+4. **Install OpenBabel:**
+
+   ```bash
+   # Ubuntu/Debian
+   sudo apt-get install openbabel
+   
+   # macOS
+   brew install openbabel
+   
+   # Or use conda
+   conda install -c conda-forge openbabel
+   ```
 
 ### Configuration
 
-All pipeline parameters are controlled from the `configs/config.yaml` file. Before running, you can adjust settings such as file paths, docking exhaustiveness, and machine learning model parameters.
+All pipeline parameters are controlled from the `configs/config.yaml` file. Key settings include:
+
+- **Data paths**: Input and output directory locations
+- **Docking parameters**: Exhaustiveness, number of modes, CPU cores
+- **Machine learning**: Model parameters, cross-validation settings
+- **Filtering criteria**: Drug-likeness rules, PAINS filters
 
 ### Usage
 
-To run the entire pipeline, execute the main script:
+**Run the entire pipeline:**
 
 ```bash
 python src/cancerag/main.py
 ```
 
+**Run specific stages:**
+
+```bash
+# Data collection only
+python -m src.cancerag.data_collection.biasdb_retriever
+
+# Docking only
+python -m src.cancerag.docking.run_docking
+
+# Machine learning only
+python -m src.cancerag.ml.train_models
+```
+
+**Resume interrupted runs:**
+The pipeline automatically detects and skips completed steps, making it safe to restart interrupted runs.
+
 ## 📁 Project Structure
 
-```
+```text
 .
 ├── configs/
 │   └── config.yaml         # Pipeline configuration
 ├── data/
 │   ├── raw/                # Raw downloaded data (BiasDB, ChEMBL)
-│   ├── interim/            # Intermediate data files
+│   ├── interim/            # Intermediate data files (SDF, temporary files)
 │   ├── processed/          # Final processed data for ML
-│   └── pdb/                # Downloaded PDB files
+│   └── pdb/                # Downloaded PDB files organized by receptor
 ├── results/
 │   ├── figures/            # Plots and visualizations
 │   ├── models/             # Saved trained models
-│   └── reports/            # Generated reports
+│   ├── reports/            # Generated reports (HTML, CSV)
+│   └── docking_results/    # Docking outputs and affinity matrices
 ├── src/
 │   └── cancerag/
 │       ├── data_collection/ # Scripts for downloading data
@@ -169,16 +398,71 @@ python src/cancerag/main.py
 │       ├── features/        # Feature extraction scripts
 │       ├── docking/         # Docking-related scripts
 │       ├── ml/              # Machine learning models and training
+│       ├── utils/           # Utility functions and helpers
 │       └── main.py          # Main pipeline execution script
 ├── tests/                  # Unit and integration tests
+├── docs/                   # Documentation and methodology
 ├── pyproject.toml          # Project metadata and dependencies
 └── README.md               # This file
 ```
 
+## 📈 Performance and Scalability
+
+### Computational Requirements
+
+- **Memory**: 16-32 GB RAM recommended for full dataset processing
+- **Storage**: 10-20 GB for complete pipeline execution
+- **CPU**: Multi-core system recommended (pipeline uses parallel processing)
+- **Time**: 24 hours for complete pipeline execution (depending on hardware)
+
+### Optimization Features
+
+- **Parallel Processing**: Multi-core utilization for docking and ML training
+- **Caching**: Smart file-based caching prevents redundant computations
+- **Incremental Processing**: Resume capability for long-running jobs
+- **Memory Management**: Efficient handling of large molecular datasets
+
+## 🔬 Validation and Quality Assurance
+
+### Data Quality Checks
+
+- **SMILES Validation**: Ensures chemical structure integrity
+- **PDB Quality Assessment**: Filters structures by resolution and completeness
+- **Bias Data Validation**: Cross-references experimental bias measurements
+- **Docking Validation**: Checks for successful pose generation
+
+### Model Validation
+
+- **Cross-Validation**: 5-fold stratified cross-validation
+- **External Validation**: Testing on held-out receptor families
+- **Biological Validation**: Comparison with known biased ligands
+- **Statistical Significance**: Confidence intervals and p-values for performance metrics
+
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a pull request or open an issue.
+Contributions are welcome! Please feel free to submit a pull request or open an issue. Areas for contribution include:
+
+- **New Feature Descriptors**: Additional molecular or receptor descriptors
+- **Alternative ML Models**: Implementation of new classification algorithms
+- **Visualization Tools**: Enhanced plotting and analysis capabilities
+- **Documentation**: Improvements to methodology or user guides
+- **Testing**: Additional unit tests or validation datasets
 
 ## 📄 License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## 📚 References
+
+1. Kenakin, T. (2019). *Biased Receptor Signaling in Drug Discovery*. Elsevier.
+2. Violin, J. D., et al. (2014). "Biased ligands at G-protein-coupled receptors: promise and progress." *Trends in Pharmacological Sciences*, 35(7), 308-316.
+3. BiasDB: The Biased Agonism Database. Available at: <https://biasdb.drug-design.de/>
+4. ChEMBL Database. Available at: <https://www.ebi.ac.uk/chembl/>
+5. Protein Data Bank. Available at: <https://www.rcsb.org/>
+
+## 🙏 Acknowledgments
+
+- BiasDB team for providing comprehensive biased agonist data
+- ChEMBL and PDB teams for maintaining high-quality databases
+- Open-source community for tools like RDKit, AutoDock Vina, and scikit-learn
+- Contributors and users who provide feedback and suggestions

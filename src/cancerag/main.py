@@ -5,14 +5,16 @@ import yaml
 from cancerag.data_collection import (
     biasdb_retriever,
     receptor_retriever,
-    chembl_retriever,
+    # chembl_retriever,
 )
 from cancerag.preprocessing import receptor_preprocessor
 from cancerag.preprocessing.ligand_preprocessor import LigandPreprocessor
 from cancerag.features import molecular_descriptors
 from cancerag.features import active_site_identifier
 from cancerag.docking import run_docking
-from cancerag.utils.unbiased_agonist_adder import UnbiasedAgonistAdder
+from cancerag.ml.dataset_assembly import run_dataset_assembly
+from cancerag.analysis.data_analyzer import run_data_analysis
+# from cancerag.utils.unbiased_agonist_adder import UnbiasedAgonistAdder
 # from cancerag.docking.pipeline import DockingPipeline
 
 
@@ -119,12 +121,29 @@ def run_pipeline(config_path: str):
 
     print("   - Molecular docking complete.")
 
-    print("\n---")
-    print("Pipeline halted after docking as per current implementation plan.")
-    print("Next steps: Implement final data collation and machine learning stages.")
+    # --- STAGE 6: DATASET ASSEMBLY ---
+    print("\n8. Starting Dataset Assembly Stage...")
 
-    # The rest of the pipeline (preprocessing, docking, ML) will be connected here
-    # once the data collection is fully implemented and produces a unified ligand set.
+    # Assemble unified dataset for machine learning
+    unified_dataset, dataset_summary = run_dataset_assembly(config)
+
+    print("   - Dataset assembly complete.")
+    print(f"   - Unified dataset: {dataset_summary['total_samples']} samples, {dataset_summary['total_features']} features")
+    print(f"   - Bias label distribution: {dataset_summary['bias_label_distribution']}")
+
+    # --- STAGE 7: COMPREHENSIVE DATA ANALYSIS ---
+    print("\n9. Starting Comprehensive Data Analysis Stage...")
+
+    # Run comprehensive data analysis
+    analysis_results = run_data_analysis(config)
+
+    print("   - Data analysis complete.")
+    print(f"   - Analysis results saved to: {config['paths']['reports']}/data_analysis/")
+    print("   - Generated visualizations and statistical reports")
+
+    print("\n---")
+    print("Pipeline completed successfully!")
+    print("Next steps: Implement machine learning model training and evaluation stages.")
 
 
 if __name__ == "__main__":

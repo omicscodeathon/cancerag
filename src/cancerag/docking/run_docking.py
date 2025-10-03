@@ -35,6 +35,14 @@ def prepare_ligands_for_docking(config: dict) -> str | None:
         logger.error(f"Ligand input file not found: {input_csv}")
         return None
 
+    # Check if SDF already exists and is newer than input CSV
+    if os.path.exists(output_sdf):
+        input_mtime = os.path.getmtime(input_csv)
+        output_mtime = os.path.getmtime(output_sdf)
+        if output_mtime > input_mtime:
+            logger.info(f"Using existing SDF file: {output_sdf}")
+            return output_sdf
+
     logger.info(f"Preparing 3D structures for ligands from {input_csv}...")
     ligands_df = pd.read_csv(input_csv)
 
