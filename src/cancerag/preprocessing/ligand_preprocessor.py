@@ -184,7 +184,7 @@ class LigandPreprocessor:
         start_count = len(df)
 
         # PAINS filter - ensure boolean values
-        df = df[not df["Has_PAINS"]]
+        df = df[~df["Has_PAINS"]]
         logger.info(f"PAINS Filter: {len(df)} molecules remain.")
 
         # Lipinski filter

@@ -1,0 +1,416 @@
+{
+  "a1_receptor": {
+    "1W72": "data/pdb/a1_receptor/1W72.pdb",
+    "3BO8": "data/pdb/a1_receptor/3BO8.pdb",
+    "7SWG": "data/pdb/a1_receptor/7SWG.pdb",
+    "1RJ7": "data/pdb/a1_receptor/1RJ7.pdb",
+    "1AUQ": "data/pdb/a1_receptor/1AUQ.pdb",
+    "1HA1": "data/pdb/a1_receptor/1HA1.pdb",
+    "1XWG": "data/pdb/a1_receptor/1XWG.pdb",
+    "2V77": "data/pdb/a1_receptor/2V77.pdb",
+    "4IP8": "data/pdb/a1_receptor/4IP8.pdb"
+  },
+  "a3_receptor": {
+    "5BRZ": "data/pdb/a3_receptor/5BRZ.pdb",
+    "8RO5": "data/pdb/a3_receptor/8RO5.pdb",
+    "9ARV": "data/pdb/a3_receptor/9ARV.pdb",
+    "8RRO": "data/pdb/a3_receptor/8RRO.pdb",
+    "1AO3": "data/pdb/a3_receptor/1AO3.pdb",
+    "1ATZ": "data/pdb/a3_receptor/1ATZ.pdb",
+    "7LFC": "data/pdb/a3_receptor/7LFC.pdb",
+    "5TBK": "data/pdb/a3_receptor/5TBK.pdb",
+    "8XDE": "data/pdb/a3_receptor/8XDE.pdb"
+  },
+  "apelin_receptor": {
+    "8XQI": "data/pdb/apelin_receptor/8XQI.pdb",
+    "5VBL": "data/pdb/apelin_receptor/5VBL.pdb",
+    "8XQE": "data/pdb/apelin_receptor/8XQE.pdb",
+    "8XQF": "data/pdb/apelin_receptor/8XQF.pdb",
+    "6KNM": "data/pdb/apelin_receptor/6KNM.pdb",
+    "8XZG": "data/pdb/apelin_receptor/8XZG.pdb",
+    "7SUS": "data/pdb/apelin_receptor/7SUS.pdb"
+  },
+  "at1_receptor": {
+    "6YV1": "data/pdb/at1_receptor/6YV1.pdb",
+    "6YUP": "data/pdb/at1_receptor/6YUP.pdb"
+  },
+  "cas_receptor": {
+    "3BJM": "data/pdb/cas_receptor/3BJM.pdb"
+  },
+  "cb1_receptor": {
+    "9B65": "data/pdb/cb1_receptor/9B65.pdb",
+    "1LVQ": "data/pdb/cb1_receptor/1LVQ.pdb",
+    "6KPG": "data/pdb/cb1_receptor/6KPG.pdb",
+    "1LVR": "data/pdb/cb1_receptor/1LVR.pdb",
+    "7V3Z": "data/pdb/cb1_receptor/7V3Z.pdb",
+    "8WU1": "data/pdb/cb1_receptor/8WU1.pdb",
+    "5TGZ": "data/pdb/cb1_receptor/5TGZ.pdb",
+    "5U09": "data/pdb/cb1_receptor/5U09.pdb",
+    "2MZA": "data/pdb/cb1_receptor/2MZA.pdb"
+  },
+  "cb2_receptor": {
+    "2HFF": "data/pdb/cb2_receptor/2HFF.pdb",
+    "8GUQ": "data/pdb/cb2_receptor/8GUQ.pdb",
+    "8GUT": "data/pdb/cb2_receptor/8GUT.pdb",
+    "8GUR": "data/pdb/cb2_receptor/8GUR.pdb",
+    "8GUS": "data/pdb/cb2_receptor/8GUS.pdb",
+    "8X3L": "data/pdb/cb2_receptor/8X3L.pdb"
+  },
+  "ccr2": {
+    "7XA3": "data/pdb/ccr2/7XA3.pdb",
+    "2MLO": "data/pdb/ccr2/2MLO.pdb",
+    "2MLQ": "data/pdb/ccr2/2MLQ.pdb",
+    "2LWL": "data/pdb/ccr2/2LWL.pdb",
+    "7P8X": "data/pdb/ccr2/7P8X.pdb"
+  },
+  "ccr5": {
+    "2RLL": "data/pdb/ccr5/2RLL.pdb",
+    "2MZX": "data/pdb/ccr5/2MZX.pdb",
+    "4MBS": "data/pdb/ccr5/4MBS.pdb",
+    "2RRS": "data/pdb/ccr5/2RRS.pdb",
+    "8AS2": "data/pdb/ccr5/8AS2.pdb",
+    "8AS3": "data/pdb/ccr5/8AS3.pdb",
+    "7F1S": "data/pdb/ccr5/7F1S.pdb",
+    "7F1R": "data/pdb/ccr5/7F1R.pdb",
+    "7F1Q": "data/pdb/ccr5/7F1Q.pdb",
+    "7F1T": "data/pdb/ccr5/7F1T.pdb"
+  },
+  "cxcr2": {
+    "8XX7": "data/pdb/cxcr2/8XX7.pdb",
+    "8XWV": "data/pdb/cxcr2/8XWV.pdb",
+    "8XX3": "data/pdb/cxcr2/8XX3.pdb",
+    "8XX6": "data/pdb/cxcr2/8XX6.pdb",
+    "8XXH": "data/pdb/cxcr2/8XXH.pdb",
+    "8XXR": "data/pdb/cxcr2/8XXR.pdb",
+    "4Q3H": "data/pdb/cxcr2/4Q3H.pdb",
+    "8XXX": "data/pdb/cxcr2/8XXX.pdb",
+    "8XVU": "data/pdb/cxcr2/8XVU.pdb",
+    "8XWA": "data/pdb/cxcr2/8XWA.pdb"
+  },
+  "cxcr3": {
+    "1LV9": "data/pdb/cxcr3/1LV9.pdb",
+    "8HNK": "data/pdb/cxcr3/8HNK.pdb",
+    "8HNL": "data/pdb/cxcr3/8HNL.pdb",
+    "8HNM": "data/pdb/cxcr3/8HNM.pdb",
+    "8K2X": "data/pdb/cxcr3/8K2X.pdb",
+    "8HNN": "data/pdb/cxcr3/8HNN.pdb",
+    "8K2W": "data/pdb/cxcr3/8K2W.pdb",
+    "8XXZ": "data/pdb/cxcr3/8XXZ.pdb",
+    "8XXY": "data/pdb/cxcr3/8XXY.pdb"
+  },
+  "cxcr4": {
+    "8U4N": "data/pdb/cxcr4/8U4N.pdb",
+    "8U4R": "data/pdb/cxcr4/8U4R.pdb",
+    "8U4P": "data/pdb/cxcr4/8U4P.pdb",
+    "8U4O": "data/pdb/cxcr4/8U4O.pdb",
+    "8YU7": "data/pdb/cxcr4/8YU7.pdb",
+    "9MEU": "data/pdb/cxcr4/9MEU.pdb",
+    "8U4Q": "data/pdb/cxcr4/8U4Q.pdb",
+    "5LFF": "data/pdb/cxcr4/5LFF.pdb",
+    "5LFH": "data/pdb/cxcr4/5LFH.pdb"
+  },
+  "d1_receptor": {
+    "6ARQ": "data/pdb/d1_receptor/6ARQ.pdb",
+    "5AO5": "data/pdb/d1_receptor/5AO5.pdb",
+    "5AO6": "data/pdb/d1_receptor/5AO6.pdb",
+    "7PRL": "data/pdb/d1_receptor/7PRL.pdb",
+    "6SUB": "data/pdb/d1_receptor/6SUB.pdb",
+    "6SUC": "data/pdb/d1_receptor/6SUC.pdb",
+    "1RSF": "data/pdb/d1_receptor/1RSF.pdb",
+    "5AWX": "data/pdb/d1_receptor/5AWX.pdb",
+    "5H08": "data/pdb/d1_receptor/5H08.pdb"
+  },
+  "d2_receptor": {
+    "4OZG": "data/pdb/d2_receptor/4OZG.pdb",
+    "3S8W": "data/pdb/d2_receptor/3S8W.pdb",
+    "6J6Y": "data/pdb/d2_receptor/6J6Y.pdb",
+    "2NPL": "data/pdb/d2_receptor/2NPL.pdb",
+    "3CAF": "data/pdb/d2_receptor/3CAF.pdb",
+    "8R79": "data/pdb/d2_receptor/8R79.pdb",
+    "9OYR": "data/pdb/d2_receptor/9OYR.pdb",
+    "5D1Q": "data/pdb/d2_receptor/5D1Q.pdb",
+    "3EUU": "data/pdb/d2_receptor/3EUU.pdb"
+  },
+  "dp2_receptor": {
+    "3LQZ": "data/pdb/dp2_receptor/3LQZ.pdb"
+  },
+  "fpr2": {
+    "9JHJ": "data/pdb/fpr2/9JHJ.pdb",
+    "8Y62": "data/pdb/fpr2/8Y62.pdb",
+    "7T6S": "data/pdb/fpr2/7T6S.pdb",
+    "7T6U": "data/pdb/fpr2/7T6U.pdb",
+    "7T6V": "data/pdb/fpr2/7T6V.pdb"
+  },
+  "ghrelin_receptor": {
+    "7F9Y": "data/pdb/ghrelin_receptor/7F9Y.pdb",
+    "7W2Z": "data/pdb/ghrelin_receptor/7W2Z.pdb",
+    "6H3E": "data/pdb/ghrelin_receptor/6H3E.pdb",
+    "7NA7": "data/pdb/ghrelin_receptor/7NA7.pdb",
+    "7NA8": "data/pdb/ghrelin_receptor/7NA8.pdb",
+    "7F9Z": "data/pdb/ghrelin_receptor/7F9Z.pdb",
+    "8JSR": "data/pdb/ghrelin_receptor/8JSR.pdb",
+    "6KO5": "data/pdb/ghrelin_receptor/6KO5.pdb"
+  },
+  "gpr84": {
+    "8J19": "data/pdb/gpr84/8J19.pdb",
+    "8J18": "data/pdb/gpr84/8J18.pdb",
+    "8J1A": "data/pdb/gpr84/8J1A.pdb"
+  },
+  "h4_receptor": {
+    "6D3N": "data/pdb/h4_receptor/6D3N.pdb",
+    "7V6Q": "data/pdb/h4_receptor/7V6Q.pdb",
+    "4H9N": "data/pdb/h4_receptor/4H9N.pdb",
+    "4H9S": "data/pdb/h4_receptor/4H9S.pdb",
+    "8Z50": "data/pdb/h4_receptor/8Z50.pdb",
+    "3NQJ": "data/pdb/h4_receptor/3NQJ.pdb",
+    "4H9O": "data/pdb/h4_receptor/4H9O.pdb",
+    "4H9P": "data/pdb/h4_receptor/4H9P.pdb",
+    "4H9Q": "data/pdb/h4_receptor/4H9Q.pdb",
+    "2RNY": "data/pdb/h4_receptor/2RNY.pdb"
+  },
+  "hca2_receptor": {
+    "9IQT": "data/pdb/hca2_receptor/9IQT.pdb",
+    "7XK2": "data/pdb/hca2_receptor/7XK2.pdb",
+    "8UTD": "data/pdb/hca2_receptor/8UTD.pdb",
+    "7ZL9": "data/pdb/hca2_receptor/7ZL9.pdb",
+    "8UUJ": "data/pdb/hca2_receptor/8UUJ.pdb",
+    "8IHB": "data/pdb/hca2_receptor/8IHB.pdb",
+    "8IHF": "data/pdb/hca2_receptor/8IHF.pdb",
+    "8IHH": "data/pdb/hca2_receptor/8IHH.pdb",
+    "8IHI": "data/pdb/hca2_receptor/8IHI.pdb",
+    "7ZLY": "data/pdb/hca2_receptor/7ZLY.pdb"
+  },
+  "lh_receptor": {
+    "9EQH": "data/pdb/lh_receptor/9EQH.pdb",
+    "8DY1": "data/pdb/lh_receptor/8DY1.pdb",
+    "8DY5": "data/pdb/lh_receptor/8DY5.pdb",
+    "6ZFZ": "data/pdb/lh_receptor/6ZFZ.pdb",
+    "9IPB": "data/pdb/lh_receptor/9IPB.pdb",
+    "9IPC": "data/pdb/lh_receptor/9IPC.pdb",
+    "9IPD": "data/pdb/lh_receptor/9IPD.pdb",
+    "9IPE": "data/pdb/lh_receptor/9IPE.pdb"
+  },
+  "m1_receptor": {
+    "2BK8": "data/pdb/m1_receptor/2BK8.pdb",
+    "3SRF": "data/pdb/m1_receptor/3SRF.pdb",
+    "5EUO": "data/pdb/m1_receptor/5EUO.pdb",
+    "7BEU": "data/pdb/m1_receptor/7BEU.pdb",
+    "7P0O": "data/pdb/m1_receptor/7P0O.pdb",
+    "5TEZ": "data/pdb/m1_receptor/5TEZ.pdb",
+    "7P0P": "data/pdb/m1_receptor/7P0P.pdb",
+    "5ISZ": "data/pdb/m1_receptor/5ISZ.pdb",
+    "5JHD": "data/pdb/m1_receptor/5JHD.pdb"
+  },
+  "m2_receptor": {
+    "1T5A": "data/pdb/m2_receptor/1T5A.pdb",
+    "3SRH": "data/pdb/m2_receptor/3SRH.pdb",
+    "6B6U": "data/pdb/m2_receptor/6B6U.pdb",
+    "6WP3": "data/pdb/m2_receptor/6WP3.pdb",
+    "6WP4": "data/pdb/m2_receptor/6WP4.pdb",
+    "6WP5": "data/pdb/m2_receptor/6WP5.pdb",
+    "7L21": "data/pdb/m2_receptor/7L21.pdb",
+    "8XMN": "data/pdb/m2_receptor/8XMN.pdb",
+    "2VUX": "data/pdb/m2_receptor/2VUX.pdb",
+    "4WJ8": "data/pdb/m2_receptor/4WJ8.pdb"
+  },
+  "m3_receptor": {
+    "7XT6": "data/pdb/m3_receptor/7XT6.pdb",
+    "6HCI": "data/pdb/m3_receptor/6HCI.pdb",
+    "2CSA": "data/pdb/m3_receptor/2CSA.pdb",
+    "5I7J": "data/pdb/m3_receptor/5I7J.pdb",
+    "3VUH": "data/pdb/m3_receptor/3VUH.pdb",
+    "5UML": "data/pdb/m3_receptor/5UML.pdb",
+    "5UMM": "data/pdb/m3_receptor/5UMM.pdb",
+    "2NYZ": "data/pdb/m3_receptor/2NYZ.pdb",
+    "8PP4": "data/pdb/m3_receptor/8PP4.pdb",
+    "2NZ1": "data/pdb/m3_receptor/2NZ1.pdb"
+  },
+  "nop_receptor": {
+    "5DHG": "data/pdb/nop_receptor/5DHG.pdb",
+    "5DHH": "data/pdb/nop_receptor/5DHH.pdb"
+  },
+  "rxfp1": {
+    "2JM4": "data/pdb/rxfp1/2JM4.pdb",
+    "7TMW": "data/pdb/rxfp1/7TMW.pdb",
+    "2M7P": "data/pdb/rxfp1/2M7P.pdb"
+  },
+  "v2_receptor": {
+    "4OAW": "data/pdb/v2_receptor/4OAW.pdb",
+    "7R0J": "data/pdb/v2_receptor/7R0J.pdb",
+    "4D9L": "data/pdb/v2_receptor/4D9L.pdb",
+    "7RCO": "data/pdb/v2_receptor/7RCO.pdb",
+    "6FY0": "data/pdb/v2_receptor/6FY0.pdb",
+    "6FY3": "data/pdb/v2_receptor/6FY3.pdb",
+    "7STF": "data/pdb/v2_receptor/7STF.pdb",
+    "4HPO": "data/pdb/v2_receptor/4HPO.pdb"
+  },
+  "1aadrenoceptor": {
+    "6U3M": "data/pdb/1aadrenoceptor/6U3M.pdb",
+    "6U3N": "data/pdb/1aadrenoceptor/6U3N.pdb",
+    "8IXB": "data/pdb/1aadrenoceptor/8IXB.pdb",
+    "8IXA": "data/pdb/1aadrenoceptor/8IXA.pdb"
+  },
+  "1adrenoceptor": {
+    "1A0U": "data/pdb/1adrenoceptor/1A0U.pdb",
+    "1A0Z": "data/pdb/1adrenoceptor/1A0Z.pdb",
+    "9CXD": "data/pdb/1adrenoceptor/9CXD.pdb",
+    "4N33": "data/pdb/1adrenoceptor/4N33.pdb",
+    "1QC5": "data/pdb/1adrenoceptor/1QC5.pdb",
+    "4N35": "data/pdb/1adrenoceptor/4N35.pdb",
+    "1AOX": "data/pdb/1adrenoceptor/1AOX.pdb",
+    "4KV5": "data/pdb/1adrenoceptor/4KV5.pdb",
+    "4N38": "data/pdb/1adrenoceptor/4N38.pdb",
+    "3OV6": "data/pdb/1adrenoceptor/3OV6.pdb"
+  },
+  "d3_receptor": {
+    "6RBF": "data/pdb/d3_receptor/6RBF.pdb",
+    "3G33": "data/pdb/d3_receptor/3G33.pdb",
+    "8QSP": "data/pdb/d3_receptor/8QSP.pdb",
+    "8R1U": "data/pdb/d3_receptor/8R1U.pdb",
+    "7SJ3": "data/pdb/d3_receptor/7SJ3.pdb",
+    "8V5T": "data/pdb/d3_receptor/8V5T.pdb",
+    "8ZU6": "data/pdb/d3_receptor/8ZU6.pdb",
+    "8R1Z": "data/pdb/d3_receptor/8R1Z.pdb",
+    "1P53": "data/pdb/d3_receptor/1P53.pdb",
+    "3C6G": "data/pdb/d3_receptor/3C6G.pdb"
+  },
+  "d4_receptor": {
+    "8ZRE": "data/pdb/d4_receptor/8ZRE.pdb",
+    "8ZRH": "data/pdb/d4_receptor/8ZRH.pdb",
+    "5D1X": "data/pdb/d4_receptor/5D1X.pdb",
+    "5D1Z": "data/pdb/d4_receptor/5D1Z.pdb",
+    "2WFH": "data/pdb/d4_receptor/2WFH.pdb",
+    "4BSJ": "data/pdb/d4_receptor/4BSJ.pdb",
+    "6LYN": "data/pdb/d4_receptor/6LYN.pdb",
+    "5FMV": "data/pdb/d4_receptor/5FMV.pdb",
+    "6Z2M": "data/pdb/d4_receptor/6Z2M.pdb"
+  },
+  "ffa1_receptor": {
+    "9K1C": "data/pdb/ffa1_receptor/9K1C.pdb",
+    "8T3V": "data/pdb/ffa1_receptor/8T3V.pdb"
+  },
+  "2aadrenoceptor": {
+    "6U3O": "data/pdb/2aadrenoceptor/6U3O.pdb",
+    "7EJ0": "data/pdb/2aadrenoceptor/7EJ0.pdb",
+    "7EJ8": "data/pdb/2aadrenoceptor/7EJ8.pdb",
+    "7EJA": "data/pdb/2aadrenoceptor/7EJA.pdb",
+    "7EJK": "data/pdb/2aadrenoceptor/7EJK.pdb",
+    "6KUX": "data/pdb/2aadrenoceptor/6KUX.pdb",
+    "6KUY": "data/pdb/2aadrenoceptor/6KUY.pdb",
+    "7W7E": "data/pdb/2aadrenoceptor/7W7E.pdb",
+    "7W6P": "data/pdb/2aadrenoceptor/7W6P.pdb"
+  },
+  "2cadrenoceptor": {
+    "6KUW": "data/pdb/2cadrenoceptor/6KUW.pdb"
+  },
+  "h2_receptor": {
+    "6L9M": "data/pdb/h2_receptor/6L9M.pdb",
+    "6L9N": "data/pdb/h2_receptor/6L9N.pdb",
+    "6AO0": "data/pdb/h2_receptor/6AO0.pdb",
+    "3PUF": "data/pdb/h2_receptor/3PUF.pdb",
+    "6L9K": "data/pdb/h2_receptor/6L9K.pdb",
+    "3TFK": "data/pdb/h2_receptor/3TFK.pdb",
+    "8J78": "data/pdb/h2_receptor/8J78.pdb"
+  },
+  "h3_receptor": {
+    "6L4A": "data/pdb/h3_receptor/6L4A.pdb",
+    "6L49": "data/pdb/h3_receptor/6L49.pdb",
+    "4GU0": "data/pdb/h3_receptor/4GU0.pdb",
+    "5VNB": "data/pdb/h3_receptor/5VNB.pdb",
+    "8W0Q": "data/pdb/h3_receptor/8W0Q.pdb",
+    "3KV4": "data/pdb/h3_receptor/3KV4.pdb",
+    "5AY8": "data/pdb/h3_receptor/5AY8.pdb",
+    "7BU9": "data/pdb/h3_receptor/7BU9.pdb",
+    "2H13": "data/pdb/h3_receptor/2H13.pdb",
+    "2PVC": "data/pdb/h3_receptor/2PVC.pdb"
+  },
+  "lpa1_receptor": {
+    "9IZH": "data/pdb/lpa1_receptor/9IZH.pdb"
+  },
+  "mc1_receptor": {
+    "7UJD": "data/pdb/mc1_receptor/7UJD.pdb",
+    "3QRU": "data/pdb/mc1_receptor/3QRU.pdb",
+    "3R8P": "data/pdb/mc1_receptor/3R8P.pdb"
+  },
+  "mc3_receptor": {
+    "6O02": "data/pdb/mc3_receptor/6O02.pdb"
+  },
+  "par2": {
+    "8ZME": "data/pdb/par2/8ZME.pdb",
+    "8ZMD": "data/pdb/par2/8ZMD.pdb",
+    "9D0A": "data/pdb/par2/9D0A.pdb",
+    "5NDD": "data/pdb/par2/5NDD.pdb",
+    "5NDZ": "data/pdb/par2/5NDZ.pdb",
+    "5NJ6": "data/pdb/par2/5NJ6.pdb"
+  },
+  "2adrenoceptor": {
+    "2QMR": "data/pdb/2adrenoceptor/2QMR.pdb",
+    "2H4M": "data/pdb/2adrenoceptor/2H4M.pdb",
+    "7USM": "data/pdb/2adrenoceptor/7USM.pdb",
+    "3K72": "data/pdb/2adrenoceptor/3K72.pdb",
+    "9CRV": "data/pdb/2adrenoceptor/9CRV.pdb",
+    "9CT0": "data/pdb/2adrenoceptor/9CT0.pdb",
+    "9CTP": "data/pdb/2adrenoceptor/9CTP.pdb",
+    "2OT8": "data/pdb/2adrenoceptor/2OT8.pdb",
+    "9CRS": "data/pdb/2adrenoceptor/9CRS.pdb",
+    "3QH9": "data/pdb/2adrenoceptor/3QH9.pdb"
+  },
+  "ffa2_receptor": {
+    "9K1D": "data/pdb/ffa2_receptor/9K1D.pdb",
+    "8T3S": "data/pdb/ffa2_receptor/8T3S.pdb"
+  },
+  "nk2_receptor": {
+    "3SP8": "data/pdb/nk2_receptor/3SP8.pdb",
+    "3HN4": "data/pdb/nk2_receptor/3HN4.pdb"
+  },
+  "_receptor": {
+    "4LZD": "data/pdb/_receptor/4LZD.pdb",
+    "6DDF": "data/pdb/_receptor/6DDF.pdb",
+    "4M04": "data/pdb/_receptor/4M04.pdb",
+    "8EFL": "data/pdb/_receptor/8EFL.pdb",
+    "6DDE": "data/pdb/_receptor/6DDE.pdb",
+    "4M0A": "data/pdb/_receptor/4M0A.pdb",
+    "6AEC": "data/pdb/_receptor/6AEC.pdb",
+    "6AEH": "data/pdb/_receptor/6AEH.pdb",
+    "6AK5": "data/pdb/_receptor/6AK5.pdb",
+    "6AK6": "data/pdb/_receptor/6AK6.pdb"
+  },
+  "5ht2c_receptor": {
+    "8DPF": "data/pdb/5ht2c_receptor/8DPF.pdb",
+    "8DPG": "data/pdb/5ht2c_receptor/8DPG.pdb",
+    "8DPH": "data/pdb/5ht2c_receptor/8DPH.pdb",
+    "8DPI": "data/pdb/5ht2c_receptor/8DPI.pdb"
+  },
+  "c5ar1": {
+    "8HK5": "data/pdb/c5ar1/8HK5.pdb",
+    "8JZP": "data/pdb/c5ar1/8JZP.pdb",
+    "8IA2": "data/pdb/c5ar1/8IA2.pdb",
+    "8JZZ": "data/pdb/c5ar1/8JZZ.pdb",
+    "7Y64": "data/pdb/c5ar1/7Y64.pdb",
+    "8HPT": "data/pdb/c5ar1/8HPT.pdb",
+    "7Y66": "data/pdb/c5ar1/7Y66.pdb",
+    "7Y65": "data/pdb/c5ar1/7Y65.pdb",
+    "7Y67": "data/pdb/c5ar1/7Y67.pdb",
+    "8GO8": "data/pdb/c5ar1/8GO8.pdb"
+  },
+  "mrgprx2": {
+    "7VDM": "data/pdb/mrgprx2/7VDM.pdb",
+    "7VDH": "data/pdb/mrgprx2/7VDH.pdb",
+    "7VUY": "data/pdb/mrgprx2/7VUY.pdb",
+    "7VUZ": "data/pdb/mrgprx2/7VUZ.pdb",
+    "7VV3": "data/pdb/mrgprx2/7VV3.pdb",
+    "7VV5": "data/pdb/mrgprx2/7VV5.pdb",
+    "7VDL": "data/pdb/mrgprx2/7VDL.pdb",
+    "7S8L": "data/pdb/mrgprx2/7S8L.pdb",
+    "7VV0": "data/pdb/mrgprx2/7VV0.pdb",
+    "7S8M": "data/pdb/mrgprx2/7S8M.pdb"
+  },
+  "fpr1": {
+    "7T6T": "data/pdb/fpr1/7T6T.pdb"
+  },
+  "ep2": {
+    "7CX2": "data/pdb/ep2/7CX2.pdb",
+    "7CX3": "data/pdb/ep2/7CX3.pdb",
+    "7CX4": "data/pdb/ep2/7CX4.pdb"
+  }
+}
