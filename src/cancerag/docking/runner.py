@@ -1,8 +1,10 @@
 import os
-from cancerag.utils.receptor_mapper import ReceptorMapper
 import subprocess
 from concurrent.futures import ProcessPoolExecutor
+
 from tqdm import tqdm
+
+from cancerag.utils.receptor_mapper import ReceptorMapper
 
 
 def _run_single_docking_task(task: dict) -> dict:
@@ -60,7 +62,7 @@ def run_docking_multiprocess(
 ) -> dict:
     """
     Runs docking for ligands against their SPECIFIC target receptors only.
-    
+
     This is the CORRECT approach for biased agonism - each ligand is docked
     only against its target receptor, not against all receptors.
 
@@ -78,16 +80,18 @@ def run_docking_multiprocess(
         dict: A dictionary containing the raw results for each receptor.
     """
     all_results = {}
-    
+
     # Check if we have ligand-receptor mapping (corrected approach)
     if ligand_receptor_mapping is not None:
         print(f"Starting CORRECTED docking with {num_cpu} processes...")
-        print("🎯 Each ligand will be docked against its SPECIFIC target receptor only!")
-        
+        print(
+            "🎯 Each ligand will be docked against its SPECIFIC target receptor only!"
+        )
+
         # Group ligands by their target receptor
         ligands_by_receptor = {}
         for ligand in prepared_ligands:
-            ligand_name = ligand['name']
+            ligand_name = ligand["name"]
             if ligand_name in ligand_receptor_mapping:
                 target_receptor = ligand_receptor_mapping[ligand_name]
                 if target_receptor not in ligands_by_receptor:
@@ -95,27 +99,33 @@ def run_docking_multiprocess(
                 ligands_by_receptor[target_receptor].append(ligand)
             else:
                 print(f"⚠️  Warning: No target receptor found for ligand {ligand_name}")
-        
+
         print("\n📊 DOCKING SUMMARY:")
         print(f"Total ligands: {len(prepared_ligands)}")
         print(f"Receptors with ligands: {len(ligands_by_receptor)}")
-        
+
         total_dockings = sum(len(ligands) for ligands in ligands_by_receptor.values())
         print(f"Total docking calculations: {total_dockings}")
-        print(f"Reduction from naive approach: {len(prepared_ligands) * len(prepared_receptors) - total_dockings:,} fewer dockings!")
-        
+        print(
+            f"Reduction from naive approach: {len(prepared_ligands) * len(prepared_receptors) - total_dockings:,} fewer dockings!"
+        )
+
         # Process each receptor
         for receptor_name, receptor_ligands in ligands_by_receptor.items():
             if receptor_name not in prepared_receptors:
-                print(f"⚠️  Warning: Receptor {receptor_name} not found in prepared receptors")
+                print(
+                    f"⚠️  Warning: Receptor {receptor_name} not found in prepared receptors"
+                )
                 continue
-                
+
             if receptor_name not in binding_sites:
                 print(f"⚠️  Warning: No binding site found for receptor {receptor_name}")
                 continue
-                
-            print(f"\n🧬 Docking {len(receptor_ligands)} ligands against {receptor_name}...")
-            
+
+            print(
+                f"\n🧬 Docking {len(receptor_ligands)} ligands against {receptor_name}..."
+            )
+
             receptor_pdbqt = prepared_receptors[receptor_name]
             binding_site = binding_sites[receptor_name]
             receptor_outdir = os.path.join(output_dir, receptor_name)
@@ -123,7 +133,9 @@ def run_docking_multiprocess(
 
             docking_tasks = []
             for ligand in receptor_ligands:
-                out_file = os.path.join(receptor_outdir, f"{ligand['name']}_docked.pdbqt")
+                out_file = os.path.join(
+                    receptor_outdir, f"{ligand['name']}_docked.pdbqt"
+                )
                 log_file = os.path.join(receptor_outdir, f"{ligand['name']}_log.txt")
 
                 # Skip if docking results already exist
@@ -163,18 +175,20 @@ def run_docking_multiprocess(
 
             # Store results
             all_results[receptor_name] = results
-            
+
             # Count successes and failures
             successes = sum(1 for r in results if r["success"])
             failures = len(results) - successes
             print(f"  ✅ {successes} successful, ❌ {failures} failed")
 
         return all_results
-        
+
     else:
         # Fallback to original approach (for backward compatibility)
         print(f"Starting docking with {num_cpu} processes...")
-        print("⚠️  WARNING: Using naive approach - docking all ligands against all receptors!")
+        print(
+            "⚠️  WARNING: Using naive approach - docking all ligands against all receptors!"
+        )
 
         for receptor_name, receptor_pdbqt in prepared_receptors.items():
             print(f"\nDocking against {receptor_name}...")
@@ -184,7 +198,9 @@ def run_docking_multiprocess(
 
             docking_tasks = []
             for ligand in prepared_ligands:
-                out_file = os.path.join(receptor_outdir, f"{ligand['name']}_docked.pdbqt")
+                out_file = os.path.join(
+                    receptor_outdir, f"{ligand['name']}_docked.pdbqt"
+                )
                 log_file = os.path.join(receptor_outdir, f"{ligand['name']}_log.txt")
 
                 # Skip if docking results already exist
@@ -228,23 +244,23 @@ def run_docking_multiprocess(
 def create_ligand_receptor_mapping(ligands_df):
     """
     Create a mapping from ligand names to their target receptors.
-    
+
     Args:
         ligands_df (pd.DataFrame): DataFrame with ligand data including receptor_subtype column
-        
+
     Returns:
         dict: Maps ligand names to receptor names
     """
     mapping = {}
     # Reuse the same normalization logic as the pipeline utilities to stay in sync with main.py
     mapper = ReceptorMapper()
-    
+
     for _, row in ligands_df.iterrows():
-        ligand_name = row.get('ligand_name', f"ligand_{row.name}")
-        receptor_subtype = row.get('receptor_subtype', '')
-        
+        ligand_name = row.get("ligand_name", f"ligand_{row.name}")
+        receptor_subtype = row.get("receptor_subtype", "")
+
         if receptor_subtype:
             normalized_receptor = mapper._normalize_receptor_name(receptor_subtype)
             mapping[ligand_name] = normalized_receptor
-    
+
     return mapping

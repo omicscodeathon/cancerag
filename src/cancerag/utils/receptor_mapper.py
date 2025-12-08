@@ -14,10 +14,10 @@ Usage:
 """
 
 import json
-import os
 import logging
+import os
+
 import pandas as pd
-from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
@@ -330,7 +330,7 @@ class ReceptorMapper:
         print(f"Coverage: {coverage_stats['coverage_percentage']:.1f}%")
         print(f"Unmapped ligands: {len(unmapped_ligands)}")
 
-        print(f"\nReceptor Coverage:")
+        print("\nReceptor Coverage:")
         for receptor, count in coverage_stats["receptor_coverage"].items():
             total = sum(
                 1
@@ -340,7 +340,7 @@ class ReceptorMapper:
             percentage = (count / total) * 100 if total > 0 else 0
             print(f"  {receptor}: {count}/{total} ({percentage:.1f}%)")
 
-        print(f"\nBias Category Coverage:")
+        print("\nBias Category Coverage:")
         for category, count in coverage_stats["bias_category_coverage"].items():
             total = sum(
                 1
@@ -351,7 +351,7 @@ class ReceptorMapper:
             print(f"  {category}: {count}/{total} ({percentage:.1f}%)")
 
         if unmapped_ligands:
-            print(f"\nTop 10 Unmapped Ligands:")
+            print("\nTop 10 Unmapped Ligands:")
             for ligand in unmapped_ligands[:10]:
                 ligand_info = ligand_mapping[ligand]
                 print(f"  {ligand} -> {ligand_info['receptor_subtype']}")

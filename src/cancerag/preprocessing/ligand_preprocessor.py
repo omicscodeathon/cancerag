@@ -1,6 +1,7 @@
+import glob
 import logging
 import os
-import glob
+
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import Descriptors, Lipinski
@@ -54,6 +55,9 @@ class LigandPreprocessor:
             parent = rdMolStandardize.FragmentParent(mol)
             # Neutralize charges
             neutral = self.unchoarger.uncharge(parent)
+            Chem.SanitizeMol(neutral)
+            neutral.UpdatePropertyCache(strict=False)
+            Chem.GetSymmSSSR(neutral)
             return neutral
         except Exception as e:
             logger.warning(f"Could not standardize molecule: {e}")
@@ -128,6 +132,11 @@ class LigandPreprocessor:
         properties = []
         for mol in tqdm(df["mol_standardized"], desc="Calculating Properties"):
             try:
+                if mol is None:
+                    properties.append([None] * 8)
+                    continue
+                mol.UpdatePropertyCache(strict=False)
+                Chem.GetSymmSSSR(mol)
                 mw = Descriptors.MolWt(mol)
                 logp = Descriptors.MolLogP(mol)
                 hbd = Lipinski.NumHDonors(mol)
@@ -175,15 +184,43 @@ class LigandPreprocessor:
             df = df.reset_index(drop=True)
             props_df = props_df.reset_index(drop=True)
 
-        df = pd.concat([df, props_df], axis=1)
+        # Concatenate along axis=1 (columns) and make a clean copy
+        df = pd.concat([df, props_df], axis=1, ignore_index=False)
+
+        # Make explicit copy to avoid reference issues
+        df = df.copy()
+
+        # CRITICAL: Check if columns are correct after concat
+        if "Has_PAINS" not in df.columns:
+            logger.error(f"Column error! Columns after concat: {list(df.columns)[:20]}")
+            raise ValueError("Has_PAINS column missing after concat")
 
         # Remove rows where any property calculation failed
-        df = df.dropna(subset=["MW", "LogP", "HBD", "HBA", "TPSA", "Rotatable_Bonds"])
+        # Use .loc to explicitly work with rows
+        mask = (
+            df[["MW", "LogP", "HBD", "HBA", "TPSA", "Rotatable_Bonds"]]
+            .notna()
+            .all(axis=1)
+        )
+        df = df.loc[mask].copy()
+
+        # Reset index after filtering to ensure proper indexing
+        df = df.reset_index(drop=True)
+
+        # Verify columns still exist after filtering
+        if "Has_PAINS" not in df.columns:
+            logger.error(
+                f"Column error after filtering! Columns: {list(df.columns)[:20]}"
+            )
+            logger.error(f"DataFrame shape: {df.shape}")
+            logger.error(f"DataFrame index: {list(df.index)[:10]}")
+            raise ValueError("Has_PAINS column missing after filtering")
 
         # --- Filtering ---
         start_count = len(df)
 
         # PAINS filter - ensure boolean values
+        logger.info(f"Applying PAINS filter (column type: {df['Has_PAINS'].dtype})")
         df = df[~df["Has_PAINS"]]
         logger.info(f"PAINS Filter: {len(df)} molecules remain.")
 

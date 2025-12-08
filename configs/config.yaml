@@ -13,9 +13,12 @@ paths:
 
 data_collection:
   max_pdb_files_per_receptor: 10
-  # Parameters for fetching additional unbiased ligands
-  chembl_activity_type: 'IC50'
-  max_unbiased_ligands_per_receptor: 500
+  # ChEMBL parameters for fetching unbiased agonists
+  enable_chembl: true # Set to false to skip ChEMBL collection
+  chembl_activity_types: [ 'EC50', 'IC50', 'Ki' ]
+  chembl_max_agonists_per_receptor: 500
+  chembl_min_confidence_score: 8
+  chembl_activity_threshold_nm: 1000
 
 preprocessing:
   activity_threshold_nm: 1000
@@ -34,6 +37,13 @@ docking:
     size_x: 25.0
     size_y: 25.0
     size_z: 25.0
+
+network:
+  # null => retry indefinitely until success
+  max_retries: null
+  base_backoff_seconds: 3
+  max_backoff_seconds: 90
+  session_retries: 5
 
 ml_model:
   test_size: 0.05

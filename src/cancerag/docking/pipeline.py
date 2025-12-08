@@ -1,8 +1,10 @@
-import os
 import multiprocessing
+import os
+
 import pandas as pd
 from rdkit import Chem
-from . import preparation, runner, analysis, reporting
+
+from . import analysis, preparation, reporting, runner
 
 
 class DockingPipeline:
@@ -17,6 +19,7 @@ class DockingPipeline:
         binding_sites: dict,
         output_dir: str = "docking_results",
         num_cpu: int = None,
+        ligand_csv_path: str = None,
     ):
         """
         Initializes the pipeline.
@@ -27,11 +30,13 @@ class DockingPipeline:
             binding_sites (dict): Maps receptor names to their binding site definitions.
             output_dir (str): Directory to store all docking-related results.
             num_cpu (int, optional): Number of CPUs for parallel processing. Defaults to auto-detect.
+            ligand_csv_path (str, optional): Path to CSV file with ligand metadata for receptor mapping.
         """
         self.ligand_file = ligand_file
         self.receptor_structures = receptor_structures
         self.binding_sites = binding_sites
         self.output_dir = output_dir
+        self.ligand_csv_path = ligand_csv_path
 
         if num_cpu is None:
             self.num_cpu = max(1, multiprocessing.cpu_count() - 1)
@@ -72,12 +77,18 @@ class DockingPipeline:
 
         # 2. Run Docking (CORRECTED APPROACH)
         print("\nStep 2: Running Docking Simulations...")
-        
+
         # Load ligand data to create receptor mapping
-        import pandas as pd
-        ligands_df = pd.read_csv('data/processed/drug_like_ligands_clean.csv')
-        ligand_receptor_mapping = runner.create_ligand_receptor_mapping(ligands_df)
-        
+        ligand_receptor_mapping = None
+        if self.ligand_csv_path and os.path.exists(self.ligand_csv_path):
+            ligands_df = pd.read_csv(self.ligand_csv_path)
+            ligand_receptor_mapping = runner.create_ligand_receptor_mapping(ligands_df)
+            print(f"  - Loaded ligand-receptor mapping from {self.ligand_csv_path}")
+        else:
+            print(
+                "  - Warning: No ligand CSV provided, docking all ligands against all receptors"
+            )
+
         self.raw_docking_results = runner.run_docking_multiprocess(
             prepared_receptors=self.prepared_receptors,
             prepared_ligands=self.prepared_ligands,
@@ -89,7 +100,7 @@ class DockingPipeline:
 
         # 3. Parse and Analyze Results
         print("\nStep 3: Parsing and Analyzing Docking Results...")
-        
+
         # Check if affinity comparison already exists
         affinity_csv_path = os.path.join(self.output_dir, "affinity_comparison.csv")
         if os.path.exists(affinity_csv_path):

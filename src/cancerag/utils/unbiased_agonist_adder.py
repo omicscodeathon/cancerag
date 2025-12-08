@@ -13,9 +13,9 @@ Usage:
     python unbiased_agonist_adder.py
 """
 
-import os
-import json
 import logging
+import os
+
 import pandas as pd
 from chembl_webresource_client.new_client import new_client
 from tqdm import tqdm
@@ -331,16 +331,16 @@ class UnbiasedAgonistAdder:
         print(f"Added unbiased agonists: {len(unbiased_df)}")
         print(f"Total ligands: {len(biasdb_df) + len(unbiased_df)}")
 
-        print(f"\nReceptor Coverage:")
+        print("\nReceptor Coverage:")
         receptor_counts = unbiased_df["receptor_subtype"].value_counts()
         for receptor, count in receptor_counts.items():
             print(f"  {receptor}: {count} unbiased agonists")
 
-        print(f"\nClass Distribution:")
+        print("\nClass Distribution:")
         print(f"  Biased ligands: {len(biasdb_df)}")
         print(f"  Pure agonists: {len(unbiased_df)}")
 
-        print(f"\nSample Unbiased Agonists:")
+        print("\nSample Unbiased Agonists:")
         sample_ligands = unbiased_df.head(5)
         for _, row in sample_ligands.iterrows():
             print(

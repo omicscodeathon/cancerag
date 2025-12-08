@@ -1,10 +1,10 @@
+import json
 import logging
 import os
-import json
-import pandas as pd
-import numpy as np
-from tqdm import tqdm
+
 from Bio.PDB import PDBParser
+from tqdm import tqdm
+
 from cancerag.preprocessing.receptor_preprocessor import extract_binding_site
 
 # Configure logging
@@ -203,7 +203,7 @@ class ActiveSiteIdentifier:
         if os.path.exists(self.output_path) and os.path.exists(
             self.selection_summary_path
         ):
-            logger.info(f"Active site identification already complete. Outputs exist:")
+            logger.info("Active site identification already complete. Outputs exist:")
             logger.info(f"  - Binding sites: {self.output_path}")
             logger.info(f"  - Selection summary: {self.selection_summary_path}")
             return
@@ -235,7 +235,7 @@ class ActiveSiteIdentifier:
                     f"Skipping {receptor_name} - no suitable structure found"
                 )
                 continue
-                
+
             # Record structure selection
             structure_selection_summary[receptor_name] = {
                 "selected_pdb": best_pdb_id,
@@ -249,7 +249,7 @@ class ActiveSiteIdentifier:
             binding_site = self._identify_binding_site(
                 best_pdb_path, best_metrics["ligand_name"]
             )
-                
+
             if binding_site:
                 binding_site["source_pdb"] = best_pdb_id
                 binding_site["receptor_name"] = receptor_name

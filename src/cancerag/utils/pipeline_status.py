@@ -9,10 +9,8 @@ Usage:
     python pipeline_status.py
 """
 
-import os
-import json
 import logging
-from pathlib import Path
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -227,7 +225,7 @@ class PipelineStatusChecker:
                     )
 
         # Overall completion status
-        print(f"\nOVERALL STATUS:")
+        print("\nOVERALL STATUS:")
         print("-" * 40)
 
         completed_stages = 0
@@ -247,7 +245,7 @@ class PipelineStatusChecker:
         )
 
         # Next steps
-        print(f"\nNEXT STEPS:")
+        print("\nNEXT STEPS:")
         print("-" * 40)
 
         if not all(info["exists"] for info in status["data_collection"].values()):

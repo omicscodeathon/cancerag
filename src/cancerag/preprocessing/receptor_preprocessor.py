@@ -1,9 +1,9 @@
+import glob
 import logging
 import os
-import glob
-import json
+
 import numpy as np
-from Bio.PDB import PDBParser, PDBIO, Select
+from Bio.PDB import PDBIO, PDBParser, Select
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)

@@ -1,0 +1,49 @@
+[run]
+# Coverage configuration for CancerAg
+
+# Source files to measure
+source = src/cancerag
+
+# Coverage measurement settings
+omit =
+    */tests/*
+    */test_*.py
+    */__pycache__/*
+    */site-packages/*
+    */venv/*
+    */env/*
+    setup.py
+
+# Branch coverage
+branch = True
+
+# Parallel coverage collection
+parallel = True
+
+[report]
+# Report settings
+precision = 2
+
+# Exclude lines from coverage
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstractmethod
+
+# Fail under threshold
+fail_under = 50
+
+# Show missing lines
+show_missing = True
+
+# Skip empty files
+skip_empty = True
+
+[html]
+# HTML report directory
+directory = htmlcov
+

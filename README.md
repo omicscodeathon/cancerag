@@ -350,6 +350,7 @@ All pipeline parameters are controlled from the `configs/config.yaml` file. Key 
 - **Docking parameters**: Exhaustiveness, number of modes, CPU cores
 - **Machine learning**: Model parameters, cross-validation settings
 - **Filtering criteria**: Drug-likeness rules, PAINS filters
+- **Network resilience**: Global retry/backoff policy for all external API calls
 
 ### Usage
 

@@ -1,0 +1,30 @@
+{
+  "pipeline_execution_time": 24698.447651147842,
+  "stages": {
+    "preprocessing": {
+      "execution_time": 4.867906808853149,
+      "train_samples": 478,
+      "test_samples": 26,
+      "features": 231,
+      "classes": 5
+    },
+    "training": {
+      "execution_time": 2889.6926453113556,
+      "models_trained": 5
+    },
+    "evaluation": {
+      "execution_time": 21803.841731786728
+    }
+  },
+  "best_model": {
+    "model_key": "random_forest",
+    "model_name": "Random Forest",
+    "test_accuracy": 0.7307692307692307,
+    "test_f1": 0.6802641802641803,
+    "train_accuracy": 0.9707112970711297,
+    "train_f1": 0.9711041359399141,
+    "training_time": 1.5502450466156006,
+    "cv_f1_mean": 0.45947845480490496,
+    "cv_f1_std": 0.08370099678570647
+  }
+}

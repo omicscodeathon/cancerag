@@ -1,9 +1,8 @@
 import os
-import pandas as pd
+
 import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
-import glob
-import json
 
 
 def visualize_affinity_distribution(all_parsed_results: dict, output_dir: str):

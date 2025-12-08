@@ -1,9 +1,11 @@
+import json
 import logging
 import os
-import json
+
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import AllChem
+
 from .pipeline import DockingPipeline
 
 # Configure logging
@@ -27,7 +29,8 @@ def prepare_ligands_for_docking(config: dict) -> str | None:
         str | None: The path to the generated SDF file, or None if it fails.
     """
     paths = config["paths"]
-    input_csv = os.path.join(paths["processed_data"], "drug_like_ligands_clean.csv")
+    # Use unified_ligands.csv which is the output of ligand preprocessing
+    input_csv = os.path.join(paths["processed_data"], "unified_ligands.csv")
     output_sdf = os.path.join(paths["interim_data"], "ligands_for_docking.sdf")
     os.makedirs(paths["interim_data"], exist_ok=True)
 
@@ -35,7 +38,7 @@ def prepare_ligands_for_docking(config: dict) -> str | None:
         logger.error(f"Ligand input file not found: {input_csv}")
         return None
 
-    # Check if SDF already exists and is newer than input CSV
+    # Check if SDF already exists and is newer than input CSV (idempotent behavior)
     if os.path.exists(output_sdf):
         input_mtime = os.path.getmtime(input_csv)
         output_mtime = os.path.getmtime(output_sdf)
@@ -114,12 +117,15 @@ def run_docking_stage(config: dict):
         return
 
     # 3. Initialize and run the pipeline
+    # Pass the ligand CSV path for receptor mapping
+    ligand_csv_path = os.path.join(paths["processed_data"], "unified_ligands.csv")
     docking_pipeline = DockingPipeline(
         ligand_file=ligand_sdf_path,
         receptor_structures=receptor_structures,
         binding_sites=binding_sites,
         output_dir=os.path.join(config["paths"]["reports"], "docking_results"),
         num_cpu=config["docking"].get("num_cpu"),  # Use num_cpu from config
+        ligand_csv_path=ligand_csv_path,  # Pass CSV path for receptor mapping
     )
 
     docking_pipeline.run_pipeline()

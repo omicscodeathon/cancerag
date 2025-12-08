@@ -15,8 +15,9 @@ Usage:
 """
 
 import json
-import os
 import logging
+import os
+
 import pandas as pd
 from rich import print
 
@@ -242,14 +243,14 @@ class ReceptorAnalyzer:
             1 if info["has_ligand"] else 0 for info in selection_summary.values()
         ]
 
-        print(f"\nSelection Statistics:")
+        print("\nSelection Statistics:")
         print(f"  Average resolution: {sum(resolutions) / len(resolutions):.2f} Å")
         print(f"  Average selection score: {sum(scores) / len(scores):.1f}")
         print(
             f"  Structures with ligands: {sum(ligand_counts)}/{len(ligand_counts)} ({100 * sum(ligand_counts) / len(ligand_counts):.1f}%)"
         )
 
-        print(f"\nDetailed Selection Results:")
+        print("\nDetailed Selection Results:")
         for receptor_name, info in selection_summary.items():
             print(f"\n{receptor_name}:")
             print(f"  Selected PDB: {info['selected_pdb']}")

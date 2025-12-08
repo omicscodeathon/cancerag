@@ -1,0 +1,71 @@
+{
+  "dataset_overview": {
+    "total_samples": 504,
+    "total_features": 909,
+    "missing_data_percentage": 69.39336790821939
+  },
+  "bias_distribution": {
+    "G protein": 259,
+    "Agonist": 99,
+    "\u03b2 Arrestin": 98,
+    "ERK": 31,
+    "G protein selectivity": 17
+  },
+  "receptor_family_distribution": {
+    "Aminergic": 224,
+    "Peptide": 113,
+    "Lipid": 38,
+    "Nucleotide": 14,
+    "Orphan": 9,
+    "Protein": 6,
+    "Alicarboxylic acid": 1
+  },
+  "receptor_distribution": {
+    "Dopamine receptor": 103,
+    "Opioid receptor": 101,
+    "Adrenoceptor": 44,
+    "5-Hydroxytryptamine receptor": 38,
+    "Histamine receptor": 22,
+    "Cannabinoid receptor": 18,
+    "Muscarinic receptor": 17,
+    "Prostanoid receptor": 17,
+    "Adenosine receptor": 14,
+    "Orphan": 8
+  },
+  "molecular_properties": {
+    "molecular_weight": {
+      "mean": 372.7129285714287,
+      "std": 91.88009879264385,
+      "min": 111.14799999999998,
+      "max": 666.4120000000004
+    },
+    "logp": {
+      "mean": 3.559298769841272,
+      "std": 1.5848686463093882,
+      "min": -1.3613999999999993,
+      "max": 7.368900000000006
+    }
+  },
+  "analysis_results": {
+    "bias_analysis": {
+      "class_imbalance_ratio": 15.235294117647058,
+      "bias_consistency": 100.0
+    },
+    "molecular_analysis": {
+      "descriptor_count": 218,
+      "top_correlations": 20
+    },
+    "docking_analysis": {
+      "receptor_count": 36,
+      "affinity_stats": 24
+    },
+    "receptor_analysis": {
+      "unique_receptors": 24,
+      "unique_families": 7
+    },
+    "statistical_analysis": {
+      "correlation_pairs": 116,
+      "significant_differences": 4
+    }
+  }
+}

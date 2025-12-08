@@ -1,8 +1,5 @@
-import pandas as pd
-import re
 import numpy as np
-from rdkit import Chem
-from rdkit.Chem import Descriptors
+import pandas as pd
 
 
 def _parse_log_file(log_file: str) -> list:

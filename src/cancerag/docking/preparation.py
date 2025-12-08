@@ -1,7 +1,8 @@
 import os
 import subprocess
-from tqdm import tqdm
+
 from rdkit import Chem
+from tqdm import tqdm
 
 
 def prepare_receptors(receptor_structures: dict, output_dir: str) -> dict:
@@ -75,7 +76,7 @@ def prepare_ligands(ligands: list, output_dir: str) -> list:
         # Skip None molecules (failed to load from SMILES)
         if mol is None:
             continue
-            
+
         # Additional safety check
         try:
             # Prefer the SDF record name set as _Name during preparation; fall back to ChEMBL_ID; else index-based name

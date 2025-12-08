@@ -1,19 +1,29 @@
-import pandas as pd
 import logging
-import requests
-import sys
 import os
+import sys
+
+import pandas as pd
+import requests
+
+from cancerag.utils.network import (
+    NetworkRetrier,
+    NetworkRetrySettings,
+    create_retry_session,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def download_biasdb_data(output_path: str) -> pd.DataFrame:
+def download_biasdb_data(
+    output_path: str, network_config: dict | None = None
+) -> pd.DataFrame:
     """
     Fetches the complete dataset from the BiasDB web server and saves it as a CSV.
     This function is idempotent - it will skip download if the file already exists.
 
     Args:
         output_path (str): The file path to save the downloaded data.
+        network_config (dict | None): Optional network retry configuration.
 
     Returns:
         pd.DataFrame: A pandas DataFrame containing the structured BiasDB data.
@@ -37,14 +47,25 @@ def download_biasdb_data(output_path: str) -> pd.DataFrame:
     url = "https://biasdb.drug-design.de/data_0/query?user_query=default_query"
     logger.info(f"Fetching data from BiasDB URL: {url}")
 
+    retry_settings = NetworkRetrySettings.from_config(network_config)
+    retrier = NetworkRetrier(retry_settings, logger=logger)
+    session = create_retry_session(retry_settings, allowed_methods=["GET"])
+
+    def _fetch_biasdb() -> list[dict]:
+        response = session.get(url, timeout=60)
+        response.raise_for_status()
+        return response.json()
+
     try:
-        response = requests.get(url)
-        response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
-        raw_data = response.json()
+        raw_data = retrier.run(
+            "BiasDB download",
+            _fetch_biasdb,
+            (requests.exceptions.RequestException,),
+        )
     except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to fetch data from BiasDB: {e}")
-        sys.exit(1)  # Exit if the core data cannot be downloaded
-    except ValueError:  # Catches JSON decoding errors
+        logger.error(f"Failed to fetch data from BiasDB after retries: {e}")
+        sys.exit(1)
+    except ValueError:
         logger.error("Failed to decode JSON from BiasDB response.")
         sys.exit(1)
 

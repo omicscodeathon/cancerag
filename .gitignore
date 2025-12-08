@@ -40,10 +40,24 @@ venv.bak/
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# Data directories (large files)
+# Documentation (user preference - keep local only)
+docs/
+
+# Data directories (large files) - exclude everything
 data/
-results/
 logs/
+
+# Results - exclude large files but keep essential summaries
+# Exclude all results first
+results/figures/
+results/models/
+results/reports/docking_results/
+results/reports/clustering_analysis/cluster_assignments.csv
+# Keep essential result summaries
+!results/reports/final_results_summary.md
+!results/reports/training_results.json
+!results/reports/model_comparison_summary.csv
+!results/reports/clustering_analysis/clustering_results.json
 
 # OS
 .DS_Store
@@ -59,14 +73,20 @@ Thumbs.db
 *.temp
 *.log
 
-# Large molecular files
+# Large molecular files (keep structure files out of git)
 *.sdf
 *.pdb
 *.pdbqt
 *.mol2
 *.mol
 
-# Analysis outputs
+# Large data files (exclude all CSV except configs, tests, and essential results)
+*.csv
+!configs/*.csv
+!tests/**/*.csv
+!results/reports/model_comparison_summary.csv
+
+# Analysis outputs (large visualization files)
 *.png
 *.jpg
 *.jpeg
