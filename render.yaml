@@ -42,6 +42,8 @@ services:
     scaling:
       minInstances: 1  # Keep at least 1 instance running (no cold starts)
       maxInstances: 3  # Limit concurrent instances to control costs
+      targetCPUPercent: 70  # Scale up when CPU usage exceeds 70%
+      targetMemoryPercent: 80  # Scale up when memory usage exceeds 80%
 
     # Disk configuration (optional - for logs persistence)
     disk:
