@@ -6,8 +6,8 @@ pandas>=2.0.0
 numpy>=1.24.0
 scikit-learn>=1.3.0
 
-# RDKit for molecular processing
-rdkit-pypi>=2022.9.5
+# RDKit for molecular processing (rdkit package, not rdkit-pypi)
+rdkit>=2023.3.1
 
 # Visualization
 matplotlib>=3.7.0

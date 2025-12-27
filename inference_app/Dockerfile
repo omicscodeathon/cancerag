@@ -1,5 +1,5 @@
 # Dockerfile for CancerAg Inference Application
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
@@ -28,9 +28,6 @@ COPY inference_app/requirements.txt /app/requirements.txt
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
-
-# Install RDKit (using conda-forge wheel for better compatibility)
-RUN pip install --no-cache-dir rdkit-pypi
 
 # Copy inference app code
 COPY inference_app/ /app/inference_app/
