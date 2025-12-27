@@ -1,0 +1,50 @@
+# Render.com deployment configuration for CancerAg Inference App
+# Documentation: https://render.com/docs/infrastructure-as-code
+
+services:
+  - type: web
+    name: cancerag-inference
+    env: docker
+    # Path to Dockerfile relative to repository root
+    dockerfilePath: ./inference_app/Dockerfile
+    # Build context is repository root (needed to access data/ and results/)
+    dockerContext: .
+
+    # Plan selection
+    # starter: $7/month - 512MB RAM, 0.5 CPU (may be tight with all receptors)
+    # standard: $25/month - 2GB RAM, 1 CPU (recommended for full features)
+    # pro: $85/month - 4GB RAM, 2 CPU (overkill unless high traffic)
+    plan: standard
+
+    # Deployment settings
+    region: oregon  # or frankfurt, singapore based on user location
+
+    # Health check configuration
+    healthCheckPath: /
+
+    # Auto-deploy settings
+    autoDeploy: true  # Deploy automatically on git push
+
+    # Environment variables
+    envVars:
+      - key: GRADIO_SERVER_NAME
+        value: 0.0.0.0
+      - key: GRADIO_SERVER_PORT
+        value: 7860
+      - key: BASE_PATH
+        value: /app
+      - key: GRADIO_ANALYTICS_ENABLED
+        value: false
+      - key: PYTHONUNBUFFERED
+        value: 1  # Ensure logs appear immediately
+
+    # Scaling settings (Standard plan and above)
+    scaling:
+      minInstances: 1  # Keep at least 1 instance running (no cold starts)
+      maxInstances: 3  # Limit concurrent instances to control costs
+
+    # Disk configuration (optional - for logs persistence)
+    disk:
+      name: inference-logs
+      mountPath: /app/logs
+      sizeGB: 1  # Small disk for application logs

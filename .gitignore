@@ -47,10 +47,43 @@ docs/
 data/
 logs/
 
+# ESSENTIAL FILES FOR DEPLOYMENT - DO NOT IGNORE
+# Allow specific model files needed for inference (ONLY these 4 files)
+!results/
+!results/models/
+!results/models/random_forest.pkl
+!results/models/xgboost.pkl
+!results/models/lightgbm.pkl
+!results/models/logistic_regression.pkl
+
+# Explicitly ignore subdirectories and other large models
+results/models/*/
+results/models/*_ensemble.pkl
+results/models/*_deep.pkl
+results/models/extra_trees.pkl
+results/models/gradient_boosting.pkl
+results/models/stacking_*.pkl
+results/models/voting_*.pkl
+
+# Allow preprocessing artifacts needed for inference
+!data/processed/
+!data/processed/ml_preprocessed/
+!data/processed/ml_preprocessed/*.pkl
+!data/processed/ml_preprocessed/*.json
+
+# Allow receptor structures for docking
+!data/processed/receptors/
+!data/processed/receptors/*.pdb
+!data/processed/receptors/*.pdbqt
+!data/processed/binding_sites.json
+
+# Allow other processed data files
+!data/processed/*.json
+!data/processed/*.csv
+
 # Results - exclude large files but keep essential summaries
 # Exclude all results first
 results/figures/
-results/models/
 results/reports/docking_results/
 results/reports/clustering_analysis/cluster_assignments.csv
 # Keep essential result summaries

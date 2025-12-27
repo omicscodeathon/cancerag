@@ -11,12 +11,35 @@ A Gradio-based web application for predicting biased agonism in GPCR ligands usi
 
 ## Installation
 
-### Prerequisites
+### Option 1: Docker Deployment (Recommended)
+
+The easiest way to deploy the inference app is using Docker:
+
+```bash
+cd inference_app
+./docker-run.sh
+```
+
+Or manually:
+
+```bash
+docker-compose up --build
+```
+
+The app will be available at `http://localhost:7860`
+
+See [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) for detailed Docker deployment instructions.
+
+### Option 2: Local Installation
+
+#### Prerequisites
 
 - Python 3.10 or higher
+- AutoDock Vina (optional, for docking features)
+- OpenBabel (optional, for docking features)
 - Trained models and preprocessing artifacts from the main pipeline
 
-### Setup
+#### Setup
 
 1. **Install dependencies**:
 
