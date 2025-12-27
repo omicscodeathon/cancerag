@@ -44,8 +44,8 @@ COPY data/processed/ml_preprocessed/scaler.pkl /app/data/processed/ml_preprocess
 COPY data/processed/ml_preprocessed/preprocessing_metadata.json /app/data/processed/ml_preprocessed/preprocessing_metadata.json
 COPY data/processed/ml_preprocessed/label_encoder.pkl /app/data/processed/ml_preprocessed/label_encoder.pkl
 
-# Copy receptor structures for docking (includes all GPCR receptors)
-COPY data/processed/receptors/ /app/data/processed/receptors/
+# Copy receptor structures for docking (ONLY selected 46 high-yield receptors, ~30MB)
+COPY data/processed/receptors_selected/ /app/data/processed/receptors/
 COPY data/processed/binding_sites.json /app/data/processed/binding_sites.json
 
 # Create additional necessary directories

@@ -71,10 +71,11 @@ results/models/voting_*.pkl
 !data/processed/ml_preprocessed/*.pkl
 !data/processed/ml_preprocessed/*.json
 
-# Allow receptor structures for docking
-!data/processed/receptors/
-!data/processed/receptors/*.pdb
-!data/processed/receptors/*.pdbqt
+# Allow receptor structures for docking (ONLY selected high-yield receptors)
+!data/processed/receptors_selected/
+!data/processed/receptors_selected/*.pdb
+!data/processed/receptors_selected/*.pdbqt
+!data/processed/receptors_selected/*.txt
 !data/processed/binding_sites.json
 
 # Allow other processed data files
