@@ -1,0 +1,25 @@
+# Minimal pyproject.toml for CancerAg inference app deployment
+# This is a subset of the main pyproject.toml with only inference dependencies
+
+[project]
+name = "cancerag"
+version = "0.1.0"
+description = "GPCR biased agonism prediction - Inference module"
+requires-python = ">=3.11"
+
+# Only include dependencies needed for inference
+dependencies = [
+    "biopython>=1.85",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "rdkit>=2023.3.1",
+    "scikit-learn>=1.3.0",
+    "scipy>=1.11.0",
+    "tqdm>=4.67.1",
+    "pyyaml>=6.0",
+    "tenacity>=9.1.2",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
