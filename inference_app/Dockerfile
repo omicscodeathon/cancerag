@@ -29,9 +29,15 @@ COPY inference_app/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
+# Copy the main cancerag package and pyproject.toml for editable install
+COPY pyproject.toml /app/pyproject.toml
+COPY src/cancerag/ /app/src/cancerag/
+
+# Install cancerag package in editable mode (only core dependencies needed for inference)
+RUN pip install --no-cache-dir -e .
+
 # Copy inference app code
 COPY inference_app/ /app/inference_app/
-COPY src/cancerag/ /app/src/cancerag/
 
 # Copy essential model files for inference (bundled in image)
 COPY results/models/random_forest.pkl /app/results/models/random_forest.pkl
