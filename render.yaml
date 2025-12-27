@@ -4,17 +4,18 @@
 services:
   - type: web
     name: cancerag-inference
-    env: docker
+    runtime: docker
     # Path to Dockerfile relative to repository root
     dockerfilePath: ./inference_app/Dockerfile
     # Build context is repository root (needed to access data/ and results/)
     dockerContext: .
 
     # Plan selection
-    # starter: $7/month - 512MB RAM, 0.5 CPU (may be tight with all receptors)
+    # free: $0/month - 512MB RAM, 0.1 CPU, spins down after 15min inactivity
+    # starter: $7/month - 512MB RAM, 0.5 CPU
     # standard: $25/month - 2GB RAM, 1 CPU (recommended for full features)
-    # pro: $85/month - 4GB RAM, 2 CPU (overkill unless high traffic)
-    plan: standard
+    # pro: $85/month - 4GB RAM, 2 CPU
+    plan: free
 
     # Deployment settings
     region: oregon  # or frankfurt, singapore based on user location
@@ -28,25 +29,19 @@ services:
     # Environment variables
     envVars:
       - key: GRADIO_SERVER_NAME
-        value: 0.0.0.0
+        value: "0.0.0.0"
       - key: GRADIO_SERVER_PORT
-        value: 7860
+        value: "7860"
       - key: BASE_PATH
         value: /app
       - key: GRADIO_ANALYTICS_ENABLED
-        value: false
+        value: "false"
       - key: PYTHONUNBUFFERED
-        value: 1  # Ensure logs appear immediately
+        value: "1"
 
-    # Scaling settings (Standard plan and above)
-    scaling:
-      minInstances: 1  # Keep at least 1 instance running (no cold starts)
-      maxInstances: 3  # Limit concurrent instances to control costs
-      targetCPUPercent: 70  # Scale up when CPU usage exceeds 70%
-      targetMemoryPercent: 80  # Scale up when memory usage exceeds 80%
-
-    # Disk configuration (optional - for logs persistence)
-    disk:
-      name: inference-logs
-      mountPath: /app/logs
-      sizeGB: 1  # Small disk for application logs
+    # Note: Scaling and disk features are not available on the free plan
+    # Free plan limitations:
+    # - Spins down after 15 minutes of inactivity
+    # - Cold start time: ~60-120 seconds when waking up
+    # - 512MB RAM limit (may struggle with all receptors loaded)
+    # - No persistent disk storage
