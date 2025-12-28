@@ -145,7 +145,7 @@ def process_pdb_id(pdb_id: str, progress=gr.Progress()) -> Tuple[Optional[str], 
     else:
         return (
             None,
-            f'<div style="text-align:center;padding:20px;color:var(--error-color, #e74c3c);">{status_msg}</div>',
+            f'<div class="message-container message-error" style="text-align:center;">{status_msg}</div>',
         )
 
 
@@ -191,7 +191,7 @@ def process_uploaded_file(
     else:
         return (
             None,
-            f'<div style="text-align:center;padding:20px;color:var(--error-color, #e74c3c);">{status_msg}</div>',
+            f'<div class="message-container message-error" style="text-align:center;">{status_msg}</div>',
         )
 
 
@@ -508,14 +508,77 @@ if not initialize_app():
 custom_css = """
 <style>
 :root {
-    --card-background: var(--background-fill-secondary, #f8f9fa);
-    --input-background: var(--background-fill-primary, #ffffff);
-    --body-text-color: var(--body-text-color, #333333);
-    --heading-color: var(--body-text-color, #333333);
-    --border-color: var(--border-color-primary, #e0e0e0);
-    --error-color: #e74c3c;
-    --warning-background: #fff3cd;
+    --card-bg: var(--background-fill-secondary);
+    --input-bg: var(--background-fill-primary);
+    --text-primary: var(--body-text-color);
+    --text-secondary: var(--body-text-color-subdued);
+    --border: var(--border-color-primary);
+    --error: #e74c3c;
+    --warning-bg: #fff3cd;
     --warning-text: #856404;
+    --success: #2ecc71;
+    --info-bg: #e3f2fd;
+    --info-text: #1565c0;
+}
+
+/* Dark mode overrides */
+.dark {
+    --warning-bg: rgba(255, 193, 7, 0.15);
+    --warning-text: #ffc107;
+    --info-bg: rgba(33, 150, 243, 0.15);
+    --info-text: #64b5f6;
+    --error: #ff6b6b;
+    --success: #51cf66;
+}
+
+/* Message containers */
+.message-container {
+    padding: 20px;
+    border-radius: 8px;
+    margin: 10px 0;
+    border: 1px solid var(--border);
+}
+
+.message-error {
+    background: rgba(231, 76, 60, 0.1);
+    color: var(--error);
+    border-color: var(--error);
+}
+
+.message-warning {
+    background: var(--warning-bg);
+    color: var(--warning-text);
+    border-color: var(--warning-text);
+}
+
+.message-info {
+    background: var(--info-bg);
+    color: var(--info-text);
+    border-color: var(--info-text);
+}
+
+/* Info cards */
+.info-card {
+    margin-top: 15px;
+    padding: 15px;
+    background: var(--card-bg);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+}
+
+.info-card code {
+    background: var(--input-bg);
+    padding: 5px;
+    border-radius: 4px;
+    display: block;
+    margin-top: 5px;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.info-card small {
+    opacity: 0.7;
 }
 
 /* Ensure 3Dmol.js viewers are properly styled */

@@ -253,7 +253,12 @@ class DockingFeatureExtractor:
                 f"> '{log_path}' 2>&1"
             )
 
-            subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+            logger.info(f"Running docking for {receptor_name}...")
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+
+            # Log the return code for debugging
+            if result.returncode != 0:
+                logger.warning(f"Vina exited with code {result.returncode} for {receptor_name}")
 
             # Check if output file was created
             if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
