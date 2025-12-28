@@ -647,7 +647,6 @@ with gr.Blocks(
                         pdb_file_upload = gr.File(
                             label="Upload PDB File",
                             file_types=[".pdb"],
-                            info="Upload your own PDB structure file",
                         )
                         process_upload_btn = gr.Button(
                             "📤 Process Uploaded File", variant="secondary"
