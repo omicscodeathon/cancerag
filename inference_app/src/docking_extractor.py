@@ -48,9 +48,40 @@ class DockingFeatureExtractor:
             list(self.binding_sites.keys()) if self.binding_sites else []
         )
 
+        # Check if Vina is available
+        self._check_vina_availability()
+
         logger.info(
             f"Initialized with {len(self.receptor_names)} receptors for docking"
         )
+
+    def _check_vina_availability(self) -> None:
+        """Check if AutoDock Vina is available in the system."""
+        import shutil
+        import subprocess
+
+        vina_path = shutil.which("vina")
+        if not vina_path:
+            logger.warning(
+                "AutoDock Vina not found in PATH. Docking will fail. "
+                "Install Vina from https://github.com/ccsb-scripps/AutoDock-Vina"
+            )
+            return
+
+        try:
+            result = subprocess.run(
+                ["vina", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                version_line = result.stdout.strip().split('\n')[0] if result.stdout else "unknown"
+                logger.info(f"AutoDock Vina found: {version_line}")
+            else:
+                logger.warning(f"Vina found at {vina_path} but version check failed")
+        except Exception as e:
+            logger.warning(f"Could not verify Vina installation: {e}")
 
     def _load_binding_sites(self) -> Dict:
         """Load binding sites configuration."""
@@ -254,11 +285,18 @@ class DockingFeatureExtractor:
             )
 
             logger.info(f"Running docking for {receptor_name}...")
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+            # Don't use capture_output=True because we're redirecting to log_path via shell
+            result = subprocess.run(cmd, shell=True, text=True, timeout=300)
 
             # Log the return code for debugging
             if result.returncode != 0:
                 logger.warning(f"Vina exited with code {result.returncode} for {receptor_name}")
+                # Also log stderr if available (though it should be in log file)
+                if os.path.exists(log_path):
+                    with open(log_path, 'r') as f:
+                        error_preview = f.read(500)
+                        if error_preview:
+                            logger.warning(f"Vina output (first 500 chars): {error_preview}")
 
             # Check if output file was created
             if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:

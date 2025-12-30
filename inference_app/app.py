@@ -398,7 +398,7 @@ def run_prediction(
                     docking_features_df = pd.DataFrame([all_docking_features])
                     features_df = pd.concat([features_df, docking_features_df], axis=1)
                 else:
-                    docking_html = f'<div style="padding:20px;background:var(--warning-background, #fff3cd);border-radius:8px;color:var(--warning-text, #856404);border:1px solid var(--border-color, #ffc107);">⚠️ Docking failed for {receptor_display_name}. Using default values.</div>'
+                    docking_html = f'<div class="message-container message-warning">⚠️ Docking failed for {receptor_display_name}. Using default values. Check deployment logs for details.</div>'
                     # Add default docking features
                     all_docking_features = {
                         name: -5.0 for name in _docking_extractor.receptor_names
@@ -406,8 +406,8 @@ def run_prediction(
                     docking_features_df = pd.DataFrame([all_docking_features])
                     features_df = pd.concat([features_df, docking_features_df], axis=1)
             except Exception as e:
-                logger.warning(f"Docking failed: {e}")
-                docking_html = f'<div style="padding:20px;background:var(--warning-background, #fff3cd);border-radius:8px;color:var(--warning-text, #856404);border:1px solid var(--border-color, #ffc107);">⚠️ Docking error: {str(e)}</div>'
+                logger.error(f"Docking exception: {e}", exc_info=True)
+                docking_html = f'<div class="message-container message-error">❌ Docking error: {str(e)}<br><small>Check deployment logs for full traceback.</small></div>'
                 # Add default docking features
                 all_docking_features = {
                     name: -5.0 for name in _docking_extractor.receptor_names
