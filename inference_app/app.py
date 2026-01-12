@@ -297,24 +297,25 @@ def visualize_ligand(smiles: str) -> str:
 
 def run_prediction(
     smiles: str, receptor_path: Optional[str], run_docking: bool, progress=gr.Progress()
-) -> Tuple[str, str, str, str, str, str, Optional[str]]:
+) -> Tuple:
     """
     Run complete prediction pipeline with progress tracking.
 
     Returns:
-        Tuple of (prediction_result, probabilities_html, descriptors_html, docking_html, comparison_html, graphs_html)
+        Tuple of (prediction_md, probabilities_dict, descriptors_df, docking_affinity, docking_status, comparison_html, graphs_img, structure_path)
     """
     if not smiles or not smiles.strip():
-        return ("⚠️ Please enter a SMILES string", "", "", "", "", "")
+        return ("⚠️ Please enter a SMILES string", {}, None, gr.update(visible=False), "", "", None, None)
 
     if not receptor_path:
         return (
             "⚠️ Please select or provide a receptor structure",
+            {},
+            None,
+            gr.update(visible=False),
             "",
             "",
-            "",
-            "",
-            "",
+            None,
             None,
         )
 
@@ -328,12 +329,12 @@ def run_prediction(
 
         is_valid, error_msg = processor.validate_smiles(smiles)
         if not is_valid:
-            return (f"❌ Invalid SMILES: {error_msg}", "", "", "", "", "")
+            return (f"❌ Invalid SMILES: {error_msg}", {}, None, gr.update(visible=False), "", "", None, None)
 
         progress(0.2, desc="Standardizing molecule...")
         mol = processor.standardize_molecule(smiles)
         if mol is None:
-            return ("❌ Failed to process molecule", "", "", "", "", "")
+            return ("❌ Failed to process molecule", {}, None, gr.update(visible=False), "", "", None, None)
 
         progress(0.3, desc="Extracting molecular descriptors...")
         # Extract molecular descriptors
@@ -346,8 +347,8 @@ def run_prediction(
         receptor_display_name = Path(receptor_path).stem if receptor_path else "Unknown"
 
         # Perform docking if requested
-        docking_scores = {}
-        docking_html = ""
+        docking_affinity_value = None
+        docking_status_text = ""
         if run_docking and _docking_extractor and receptor_path:
             try:
                 progress(0.4, desc="Preparing ligand for docking...")
@@ -364,30 +365,8 @@ def run_prediction(
                 progress(0.7, desc="Processing docking results...")
 
                 if affinity is not None:
-                    docking_scores[receptor_display_name] = affinity
-
-                    # Create docking visualization
-                    fig = _result_visualizer.plot_docking_results(
-                        {receptor_display_name: affinity}
-                    )
-                    import base64
-                    import io
-
-                    buffer = io.BytesIO()
-                    fig.savefig(buffer, format="png", dpi=150, bbox_inches="tight")
-                    buffer.seek(0)
-                    img_str = base64.b64encode(buffer.getvalue()).decode()
-                    docking_html = f"""
-                    <div style="padding:20px;background:var(--card-background, #f8f9fa);border-radius:8px;border:1px solid var(--border-color, #ddd);">
-                        <h3 style="margin-top:0;color:var(--heading-color, #333);">⚗️ Docking Results</h3>
-                        <div style="background:var(--input-background, #fff);padding:15px;border-radius:8px;margin-bottom:15px;border:1px solid var(--border-color, #ddd);">
-                            <strong style="color:var(--body-text-color, #333);">Binding Affinity:</strong> <span style="font-size:20px;color:#2ecc71;font-weight:bold;">{affinity:.2f} kcal/mol</span><br>
-                            <small style="color:var(--body-text-color, #666);opacity:0.8;">More negative values indicate stronger binding</small>
-                        </div>
-                        <img src="data:image/png;base64,{img_str}" style="max-width:100%;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);background:var(--input-background, #fff);padding:5px;"/>
-                    </div>
-                    """
-                    plt.close(fig)
+                    docking_affinity_value = affinity
+                    docking_status_text = f"✅ **Docking Successful**\n\nReceptor: {receptor_display_name}\n\n*More negative values indicate stronger binding*"
 
                     # Add docking feature to feature vector (for other receptors, use default)
                     all_docking_features = {
@@ -398,7 +377,7 @@ def run_prediction(
                     docking_features_df = pd.DataFrame([all_docking_features])
                     features_df = pd.concat([features_df, docking_features_df], axis=1)
                 else:
-                    docking_html = f'<div class="message-container message-warning">⚠️ Docking failed for {receptor_display_name}. Using default values. Check deployment logs for details.</div>'
+                    docking_status_text = f"⚠️ **Docking Failed**\n\nReceptor: {receptor_display_name}\n\nUsing default values. Check deployment logs for details."
                     # Add default docking features
                     all_docking_features = {
                         name: -5.0 for name in _docking_extractor.receptor_names
@@ -407,7 +386,7 @@ def run_prediction(
                     features_df = pd.concat([features_df, docking_features_df], axis=1)
             except Exception as e:
                 logger.error(f"Docking exception: {e}", exc_info=True)
-                docking_html = f'<div class="message-container message-error">❌ Docking error: {str(e)}<br><small>Check deployment logs for full traceback.</small></div>'
+                docking_status_text = f"❌ **Docking Error**\n\n{str(e)}\n\nCheck deployment logs for full traceback."
                 # Add default docking features
                 all_docking_features = {
                     name: -5.0 for name in _docking_extractor.receptor_names
@@ -421,28 +400,16 @@ def run_prediction(
 
         progress(0.9, desc="Generating visualizations...")
 
-        # Format prediction result with dark mode support
-        prediction_html = f"""
-        <div style="text-align:center;padding:30px;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border-radius:12px;color:white;box-shadow:0 4px 15px rgba(0,0,0,0.2);">
-            <h2 style="margin:0 0 10px 0;font-size:28px;color:white;">🎯 Predicted Bias Category</h2>
-            <div style="font-size:36px;font-weight:bold;margin:15px 0;color:white;">{predicted_class}</div>
-            <div style="font-size:14px;opacity:0.9;color:white;">Based on molecular descriptors and docking analysis</div>
-        </div>
+        # Format prediction result as markdown
+        prediction_md = f"""## {predicted_class}
+
+*Based on molecular descriptors and docking analysis*
         """
 
-        # Create probabilities visualization
-        prob_fig = _result_visualizer.plot_class_probabilities(probabilities)
-        import base64
-        import io
+        # Prepare probabilities dict for gr.Label (expects dict with class: confidence)
+        probabilities_dict = {k: float(v) for k, v in probabilities.items()}
 
-        buffer = io.BytesIO()
-        prob_fig.savefig(buffer, format="png", dpi=150, bbox_inches="tight")
-        buffer.seek(0)
-        prob_img_str = base64.b64encode(buffer.getvalue()).decode()
-        probabilities_html = f'<img src="data:image/png;base64,{prob_img_str}" style="max-width:100%;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);"/>'
-        plt.close(prob_fig)
-
-        # Extract and display descriptors
+        # Extract and display descriptors as DataFrame
         key_descriptors = {
             "MW": features_df.get("MW", [None])[0],
             "LogP": features_df.get("LogP", [None])[0],
@@ -455,7 +422,13 @@ def run_prediction(
         }
         # Filter out None values
         key_descriptors = {k: v for k, v in key_descriptors.items() if v is not None}
-        descriptors_html = _result_visualizer.create_descriptors_table(key_descriptors)
+        
+        # Convert to DataFrame format
+        import tempfile
+        descriptors_df = pd.DataFrame([
+            {"Property": k, "Value": f"{v:.3f}" if isinstance(v, float) else str(v)}
+            for k, v in key_descriptors.items()
+        ])
 
         # Create comparison view with structure visualization
         comparison_html = _visualizer.create_comparison_view(mol, receptor_path)
@@ -465,38 +438,35 @@ def run_prediction(
         if HAS_MOLECULE3D and receptor_path and Path(receptor_path).exists():
             structure_visualization = receptor_path
 
-        # Create descriptor radar chart
+        # Create descriptor radar chart and save as temp file
+        graphs_img_path = None
         if key_descriptors:
             radar_fig = _result_visualizer.plot_descriptors_radar(key_descriptors)
-            buffer = io.BytesIO()
-            radar_fig.savefig(buffer, format="png", dpi=150, bbox_inches="tight")
-            buffer.seek(0)
-            radar_img_str = base64.b64encode(buffer.getvalue()).decode()
-            graphs_html = f"""
-            <div style="margin-bottom:20px;">
-                <h3 style="color:var(--heading-color, #333);margin-bottom:15px;">📊 Molecular Descriptors Profile</h3>
-                <img src="data:image/png;base64,{radar_img_str}" style="max-width:100%;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);background:var(--input-background, #fff);padding:5px;"/>
-            </div>
-            """
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False, dir="/tmp") as tmp:
+                graphs_img_path = tmp.name
+                radar_fig.savefig(graphs_img_path, format="png", dpi=150, bbox_inches="tight")
             plt.close(radar_fig)
-        else:
-            graphs_html = ""
 
         progress(1.0, desc="Complete!")
 
+        # Update docking visibility based on whether we have a value
+        docking_affinity_update = gr.update(value=docking_affinity_value, visible=docking_affinity_value is not None)
+
         return (
-            prediction_html,
-            probabilities_html,
-            descriptors_html,
-            docking_html,
+            prediction_md,
+            probabilities_dict,
+            descriptors_df,
+            docking_affinity_update,
+            docking_status_text,
             comparison_html,
-            graphs_html,
+            graphs_img_path,
             structure_visualization,
         )
 
     except Exception as e:
         logger.error(f"Prediction error: {e}", exc_info=True)
-        return (f"❌ Error: {str(e)}", "", "", "", "", "", None)
+        return (f"❌ Error: {str(e)}", {}, None, gr.update(visible=False), "", "", None, None)
 
 
 # Initialize app
@@ -870,7 +840,7 @@ with gr.Blocks(
             gr.Markdown("### 📊 Results")
 
             with gr.Row():
-                prediction_output = gr.HTML(label="Prediction")
+                prediction_output = gr.Markdown(label="🎯 Predicted Bias Category")
 
             # Structure visualization in results (if Molecule3D available)
             if HAS_MOLECULE3D:
@@ -884,18 +854,19 @@ with gr.Blocks(
 
             with gr.Row():
                 with gr.Column():
-                    probabilities_output = gr.HTML(label="Class Probabilities")
+                    probabilities_output = gr.Label(label="Class Probabilities", num_top_classes=5)
                 with gr.Column():
-                    docking_output = gr.HTML(label="Docking Results")
+                    docking_affinity = gr.Number(label="Binding Affinity (kcal/mol)", precision=2, visible=False)
+                    docking_status = gr.Markdown(label="Docking Status")
 
             with gr.Row():
                 comparison_output = gr.HTML(label="Ligand-Receptor Comparison")
 
             with gr.Row():
-                graphs_output = gr.HTML(label="Additional Visualizations")
+                graphs_output = gr.Image(label="Additional Visualizations", type="filepath")
 
             with gr.Row():
-                descriptors_output = gr.HTML(label="Molecular Descriptors")
+                descriptors_output = gr.DataFrame(label="Molecular Descriptors", headers=["Property", "Value"])
 
             # Connect prediction button
             if HAS_MOLECULE3D:
@@ -906,7 +877,8 @@ with gr.Blocks(
                         prediction_output,
                         probabilities_output,
                         descriptors_output,
-                        docking_output,
+                        docking_affinity,
+                        docking_status,
                         comparison_output,
                         graphs_output,
                         result_structure_viewer,
@@ -916,13 +888,14 @@ with gr.Blocks(
                 predict_btn.click(
                     fn=lambda smiles, path, docking: run_prediction(
                         smiles, path, docking
-                    )[:-1],
+                    )[:-1],  # Exclude structure_visualization for non-Molecule3D
                     inputs=[smiles_input, current_receptor_path, run_docking_checkbox],
                     outputs=[
                         prediction_output,
                         probabilities_output,
                         descriptors_output,
-                        docking_output,
+                        docking_affinity,
+                        docking_status,
                         comparison_output,
                         graphs_output,
                     ],
@@ -989,10 +962,15 @@ with gr.Blocks(
     )
 
 if __name__ == "__main__":
+    import os
+
+    # Use PORT environment variable for Cloud Run compatibility
+    port = int(os.environ.get("PORT", 7860))
+
     app.launch(
         share=False,
         server_name="0.0.0.0",
-        server_port=7860,
+        server_port=port,
         allowed_paths=[
             "/app/data/processed/receptors",
             "/app/data/processed",
