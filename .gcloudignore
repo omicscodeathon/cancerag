@@ -1,0 +1,65 @@
+# Google Cloud Build ignore file
+# This file specifies files that should not be uploaded to Google Cloud
+# when deploying with gcloud
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Documentation (not needed in container)
+*.md
+docs/
+
+# Notebooks and scripts (not needed for inference)
+notebooks/
+scripts/
+*.ipynb
+
+# Data not needed for inference
+data/raw/
+data/external/
+data/interim/
+
+# Logs
+logs/
+*.log
+
+# Testing
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Deployment configs for other platforms
+render.yaml
+.dockerignore
+
+# Temp files
+*.tmp
+temp/
+tmp/
