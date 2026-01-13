@@ -106,12 +106,11 @@ class BiasPredictor:
         Returns:
             Preprocessed feature array ready for prediction
         """
+        # Make a copy to avoid modifying the original
+        features_df = features_df.copy()
+        
         # Select only the features used during training
         if self.feature_columns:
-            # Get available features
-            [
-                col for col in self.feature_columns if col in features_df.columns
-            ]
             missing_features = [
                 col for col in self.feature_columns if col not in features_df.columns
             ]
@@ -120,22 +119,25 @@ class BiasPredictor:
                 logger.warning(
                     f"Missing {len(missing_features)} features. Filling with NaN."
                 )
+                logger.warning(f"Missing features: {missing_features}")
                 # Add missing features as NaN
                 for col in missing_features:
                     features_df[col] = np.nan
 
-            # Select features in the correct order
-            features_df = features_df[self.feature_columns]
+            # Select features in the correct order (keep as DataFrame for feature names)
+            features_df = features_df[self.feature_columns].copy()
 
         # Handle missing values with imputer
         if self.imputer is not None:
-            features_array = self.imputer.transform(features_df.values)
+            # Transform and keep as DataFrame to preserve feature names
+            imputed_values = self.imputer.transform(features_df)
+            features_df = pd.DataFrame(imputed_values, columns=self.feature_columns)
         else:
             # Simple median imputation if no imputer
-            features_array = features_df.fillna(features_df.median()).values
+            features_df = features_df.fillna(features_df.median())
 
-        # Scale features
-        features_scaled = self.scaler.transform(features_array)
+        # Scale features - pass DataFrame to preserve feature names
+        features_scaled = self.scaler.transform(features_df)
 
         return features_scaled
 

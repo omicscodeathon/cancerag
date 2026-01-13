@@ -129,6 +129,13 @@ class FeatureExtractor:
         for key, value in custom_features.items():
             df[key] = value
 
+        # Add TPSA.1 which is a duplicate of TPSA (from training data column naming)
+        df["TPSA.1"] = df["TPSA"].values[0] if "TPSA" in df.columns else None
+        
+        # Add m1_receptor as it's expected by the model but may not be in all binding site configs
+        if "m1_receptor" not in df.columns:
+            df["m1_receptor"] = -5.0  # Default docking value
+
         return df
 
     def get_feature_names(self) -> List[str]:

@@ -2,12 +2,14 @@
 Beautiful Interactive CancerAg Inference App
 
 Interactive interface with receptor selection, 3D visualization, and comprehensive results.
+Uses pure Gradio components for a clean, intuitive interface.
 """
 
 import logging
 import sys
+import warnings
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import gradio as gr
 import matplotlib
@@ -15,6 +17,10 @@ import matplotlib
 matplotlib.use("Agg")  # Non-interactive backend
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
+
+# Suppress sklearn feature name warnings (features are in correct order)
+warnings.filterwarnings("ignore", message=".*does not have valid feature names.*")
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -24,7 +30,6 @@ from src.inference_pipeline import InferencePipeline
 from src.molecular_visualizer import MolecularVisualizer
 from src.predictor import load_predictor
 from src.receptor_manager import ReceptorManager
-from src.receptor_processor import ReceptorProcessor
 from src.result_visualizer import ResultVisualizer
 
 
@@ -50,7 +55,6 @@ _receptor_manager = None
 _visualizer = None
 _result_visualizer = None
 _docking_extractor = None
-_receptor_processor = None
 
 
 def initialize_app():
@@ -61,13 +65,11 @@ def initialize_app():
         _receptor_manager, \
         _visualizer, \
         _result_visualizer, \
-        _docking_extractor, \
-        _receptor_processor
+        _docking_extractor
 
     try:
         base_path = Path(__file__).parent.parent
 
-        # Initialize components
         logger.info("Initializing app components...")
         _predictor = load_predictor(model_name="random_forest")
         _pipeline = InferencePipeline(
@@ -77,7 +79,6 @@ def initialize_app():
         _visualizer = MolecularVisualizer()
         _result_visualizer = ResultVisualizer()
         _docking_extractor = DockingFeatureExtractor(base_path=str(base_path))
-        _receptor_processor = ReceptorProcessor(base_path=str(base_path))
 
         logger.info("App initialized successfully")
         return True
@@ -94,179 +95,29 @@ def get_receptor_list() -> List[Tuple[str, str]]:
     return [(r["display_name"], r["name"]) for r in receptors]
 
 
-def get_receptor_pdb_path(receptor_name: str) -> Optional[str]:
-    """Get PDB file path for a receptor."""
-    if not receptor_name or _receptor_manager is None:
-        return None
-
-    receptor = _receptor_manager.get_receptor_by_name(receptor_name)
-    if not receptor or not receptor["available"]:
-        return None
-
-    pdb_path = receptor["pdb_path"]
-    if pdb_path and Path(pdb_path).exists():
-        return pdb_path
-    return None
-
-
-def process_pdb_id(pdb_id: str, progress=gr.Progress()) -> Tuple[Optional[str], str]:
-    """
-    Process a PDB ID input.
-
-    Returns:
-        Tuple of (pdb_path, info_html)
-    """
-    if not pdb_id or not pdb_id.strip():
-        return (
-            None,
-            '<div style="text-align:center;padding:20px;color:var(--body-text-color, #666);">Enter a PDB ID</div>',
-        )
-
-    if _receptor_processor is None:
-        return (
-            None,
-            '<div style="text-align:center;padding:20px;color:var(--error-color, #e74c3c);">Receptor processor not initialized</div>',
-        )
-
-    pdb_path, binding_info, status_msg = _receptor_processor.fetch_pdb_by_id(
-        pdb_id.strip(), progress_callback=progress
-    )
-
-    if pdb_path and Path(pdb_path).exists():
-        info = f"""
-        <div style="margin-top:15px;padding:15px;background:var(--card-background, #f8f9fa);border-radius:8px;border:1px solid var(--border-color, #ddd);color:var(--body-text-color, #333);">
-            <strong>PDB ID:</strong> {binding_info.get("pdb_id", pdb_id)}<br>
-            <strong>Source:</strong> {binding_info.get("source", "PDB")}<br>
-            <strong>Binding Site:</strong> Identified from co-crystallized ligand<br>
-            <small style="opacity:0.7;">{status_msg}</small>
-        </div>
-        """
-        return pdb_path, info
-    else:
-        return (
-            None,
-            f'<div class="message-container message-error" style="text-align:center;">{status_msg}</div>',
-        )
-
-
-def process_uploaded_file(
-    uploaded_file, progress=gr.Progress()
-) -> Tuple[Optional[str], str]:
-    """
-    Process an uploaded PDB file.
-
-    Returns:
-        Tuple of (pdb_path, info_html)
-    """
-    if uploaded_file is None:
-        return (
-            None,
-            '<div style="text-align:center;padding:20px;color:var(--body-text-color, #666);">Upload a PDB file</div>',
-        )
-
-    if _receptor_processor is None:
-        return (
-            None,
-            '<div style="text-align:center;padding:20px;color:var(--error-color, #e74c3c);">Receptor processor not initialized</div>',
-        )
-
-    file_path = (
-        uploaded_file.name if hasattr(uploaded_file, "name") else str(uploaded_file)
-    )
-
-    pdb_path, binding_info, status_msg = _receptor_processor.process_uploaded_file(
-        file_path, progress_callback=progress
-    )
-
-    if pdb_path and Path(pdb_path).exists():
-        info = f"""
-        <div style="margin-top:15px;padding:15px;background:var(--card-background, #f8f9fa);border-radius:8px;border:1px solid var(--border-color, #ddd);color:var(--body-text-color, #333);">
-            <strong>File:</strong> {Path(file_path).name}<br>
-            <strong>Source:</strong> Uploaded<br>
-            <strong>Binding Site:</strong> Identified from co-crystallized ligand<br>
-            <small style="opacity:0.7;">{status_msg}</small>
-        </div>
-        """
-        return pdb_path, info
-    else:
-        return (
-            None,
-            f'<div class="message-container message-error" style="text-align:center;">{status_msg}</div>',
-        )
-
-
 def visualize_receptor(receptor_name: str) -> Tuple[Optional[str], str]:
-    """
-    Get receptor PDB path and info for visualization from existing structures.
-
-    Returns:
-        Tuple of (pdb_path, info_html)
-    """
+    """Get receptor PDB path and info for visualization."""
     if not receptor_name or _receptor_manager is None:
-        return (
-            None,
-            '<div style="text-align:center;padding:50px;color:var(--body-text-color, #666);">Select a receptor to visualize</div>',
-        )
+        return (None, "")
 
     receptor = _receptor_manager.get_receptor_by_name(receptor_name)
     if not receptor or not receptor["available"]:
-        return (
-            None,
-            '<div style="text-align:center;padding:50px;color:var(--error-color, #e74c3c);">Receptor structure not available</div>',
-        )
+        return (None, "❌ Receptor not available")
 
     pdb_path = receptor["pdb_path"]
+    binding_site = receptor.get("binding_site", {})
+    
     if pdb_path and Path(pdb_path).exists():
-        info = f"""
-        <div style="margin-top:15px;padding:15px;background:var(--card-background, #f8f9fa);border-radius:8px;border:1px solid var(--border-color, #ddd);color:var(--body-text-color, #333);">
-            <strong>Receptor:</strong> {receptor["display_name"]}<br>
-            <strong>PDB ID:</strong> {receptor["pdb_id"]}<br>
-            <strong>Binding Site:</strong> Defined from co-crystallized ligand
-        </div>
-        """
+        info = f"**{receptor['display_name']}** • PDB: `{receptor['pdb_id']}` • Binding site from: {binding_site.get('ligand_name', 'N/A')}"
         return pdb_path, info
     else:
-        return (
-            None,
-            '<div style="text-align:center;padding:50px;color:var(--error-color, #e74c3c);">Receptor structure file not found</div>',
-        )
+        return (None, "❌ Structure file not found")
 
 
-def get_receptor_path_from_input(
-    input_method: str,
-    receptor_name: Optional[str] = None,
-    pdb_id: Optional[str] = None,
-    uploaded_file: Optional[Any] = None,
-) -> Tuple[Optional[str], str]:
-    """
-    Unified function to get receptor path based on input method.
-
-    Args:
-        input_method: "existing", "pdb_id", or "upload"
-        receptor_name: For "existing" method
-        pdb_id: For "pdb_id" method
-        uploaded_file: For "upload" method
-
-    Returns:
-        Tuple of (pdb_path, info_html)
-    """
-    if input_method == "existing":
-        return visualize_receptor(receptor_name or "")
-    elif input_method == "pdb_id":
-        return process_pdb_id(pdb_id or "")
-    elif input_method == "upload":
-        return process_uploaded_file(uploaded_file)
-    else:
-        return (
-            None,
-            '<div style="text-align:center;padding:20px;color:var(--body-text-color, #666);">Select an input method</div>',
-        )
-
-
-def visualize_ligand(smiles: str) -> str:
-    """Visualize ligand from SMILES."""
+def validate_and_visualize_ligand(smiles: str) -> Tuple[Optional[str], str, Optional[str]]:
+    """Validate and visualize ligand from SMILES."""
     if not smiles or not smiles.strip():
-        return '<div style="text-align:center;padding:50px;color:var(--body-text-color, #666);">Enter a SMILES string to visualize</div>'
+        return (None, "", None)
 
     try:
         from src.molecule_processor import MoleculeProcessor
@@ -275,198 +126,326 @@ def visualize_ligand(smiles: str) -> str:
 
         is_valid, error_msg = processor.validate_smiles(smiles)
         if not is_valid:
-            return f'<div style="text-align:center;padding:50px;color:var(--error-color, #e74c3c);">Invalid SMILES: {error_msg}</div>'
+            return (None, f"❌ {error_msg}", None)
 
         mol = processor.standardize_molecule(smiles)
         if mol is None:
-            return '<div style="text-align:center;padding:50px;color:var(--error-color, #e74c3c);">Failed to process molecule</div>'
+            return (None, "❌ Failed to process molecule", None)
 
-        html = _visualizer.visualize_ligand_3d(mol, width=400, height=400)
+        from rdkit import Chem
+        from rdkit.Chem import Draw, Descriptors
+        import tempfile
+        
+        img = Draw.MolToImage(mol, size=(350, 350))
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False, dir="/tmp") as tmp:
+            img_path = tmp.name
+            img.save(img_path)
+        
         canonical = processor.get_canonical_smiles(mol)
-        info = f"""
-        <div style="margin-top:15px;padding:15px;background:var(--card-background, #f8f9fa);border-radius:8px;border:1px solid var(--border-color, #ddd);color:var(--body-text-color, #333);">
-            <strong>Canonical SMILES:</strong><br>
-            <code style="background:var(--input-background, #fff);padding:5px;border-radius:4px;display:block;margin-top:5px;color:var(--body-text-color, #333);border:1px solid var(--border-color, #ddd);">{canonical}</code>
-        </div>
-        """
-        return html + info
+        mw = Descriptors.MolWt(mol)
+        logp = Descriptors.MolLogP(mol)
+        
+        info_md = f"✅ Valid • MW: {mw:.1f} • LogP: {logp:.2f}"
+        
+        return (img_path, info_md, canonical)
     except Exception as e:
         logger.error(f"Ligand visualization error: {e}")
-        return f'<div style="text-align:center;padding:50px;color:var(--error-color, #e74c3c);">Error: {str(e)}</div>'
+        return (None, f"❌ {str(e)}", None)
+
+
+def assess_drug_likeness(mol) -> Dict:
+    """Assess drug-likeness using multiple rules."""
+    from rdkit.Chem import Descriptors, Lipinski
+    
+    mw = Descriptors.MolWt(mol)
+    logp = Descriptors.MolLogP(mol)
+    hbd = Lipinski.NumHDonors(mol)
+    hba = Lipinski.NumHAcceptors(mol)
+    tpsa = Descriptors.TPSA(mol)
+    rot_bonds = Descriptors.NumRotatableBonds(mol)
+    
+    # Lipinski's Rule of 5
+    lipinski_violations = sum([
+        mw > 500,
+        logp > 5,
+        hbd > 5,
+        hba > 10
+    ])
+    lipinski_pass = lipinski_violations <= 1
+    
+    # Veber's rules (oral bioavailability)
+    veber_pass = rot_bonds <= 10 and tpsa <= 140
+    
+    # Lead-likeness
+    lead_like = 250 <= mw <= 350 and logp <= 3.5 and rot_bonds <= 7
+    
+    return {
+        "mw": mw,
+        "logp": logp,
+        "hbd": hbd,
+        "hba": hba,
+        "tpsa": tpsa,
+        "rot_bonds": rot_bonds,
+        "lipinski_violations": lipinski_violations,
+        "lipinski_pass": lipinski_pass,
+        "veber_pass": veber_pass,
+        "lead_like": lead_like,
+    }
 
 
 def run_prediction(
-    smiles: str, receptor_path: Optional[str], run_docking: bool, progress=gr.Progress()
+    smiles: str, receptor_name: Optional[str], run_docking: bool, progress=gr.Progress()
 ) -> Tuple:
-    """
-    Run complete prediction pipeline with progress tracking.
+    """Run complete prediction pipeline with progress tracking."""
+    
+    # Default empty returns (11 outputs)
+    empty_return = (
+        "",  # prediction_output
+        {},  # probabilities_output
+        "",  # drug_likeness_md
+        "",  # interpretation_md  
+        "",  # docking_md
+        None,  # radar_chart
+        gr.update(visible=False),  # results_section
+        gr.update(visible=False),  # loading_section
+        None,  # descriptors_df
+        "",  # binding_interpretation
+    )
+    
+    if not smiles or not smiles.strip() or not receptor_name:
+        return empty_return
 
-    Returns:
-        Tuple of (prediction_md, probabilities_dict, descriptors_df, docking_affinity, docking_status, comparison_html, graphs_img, structure_path)
-    """
-    if not smiles or not smiles.strip():
-        return ("⚠️ Please enter a SMILES string", {}, None, gr.update(visible=False), "", "", None, None)
-
-    if not receptor_path:
-        return (
-            "⚠️ Please select or provide a receptor structure",
-            {},
-            None,
-            gr.update(visible=False),
-            "",
-            "",
-            None,
-            None,
-        )
+    receptor = _receptor_manager.get_receptor_by_name(receptor_name) if _receptor_manager else None
+    if not receptor or not receptor["available"]:
+        return empty_return
 
     try:
-        progress(0.1, desc="Validating SMILES...")
+        progress(0.05, desc="🔬 Validating molecule...")
 
-        # Process ligand
         from src.molecule_processor import MoleculeProcessor
-
         processor = MoleculeProcessor()
 
         is_valid, error_msg = processor.validate_smiles(smiles)
         if not is_valid:
-            return (f"❌ Invalid SMILES: {error_msg}", {}, None, gr.update(visible=False), "", "", None, None)
+            return (
+                f"❌ **Invalid SMILES:** {error_msg}",
+                {}, "", "", "", None, gr.update(visible=True), gr.update(visible=False), None, ""
+            )
 
-        progress(0.2, desc="Standardizing molecule...")
+        progress(0.15, desc="⚙️ Processing molecule...")
         mol = processor.standardize_molecule(smiles)
         if mol is None:
-            return ("❌ Failed to process molecule", {}, None, gr.update(visible=False), "", "", None, None)
+            return (
+                "❌ **Error:** Failed to process molecule",
+                {}, "", "", "", None, gr.update(visible=True), gr.update(visible=False), None, ""
+            )
 
-        progress(0.3, desc="Extracting molecular descriptors...")
-        # Extract molecular descriptors
+        # Drug-likeness assessment
+        progress(0.20, desc="💊 Assessing drug-likeness...")
+        drug_props = assess_drug_likeness(mol)
+
+        progress(0.25, desc="📊 Extracting descriptors...")
         from src.feature_extractor import FeatureExtractor
-
         feature_extractor = FeatureExtractor()
         features_df = feature_extractor.extract_features(mol)
 
-        # Get receptor display name
-        receptor_display_name = Path(receptor_path).stem if receptor_path else "Unknown"
+        receptor_display_name = receptor["display_name"]
+        binding_site = receptor.get("binding_site", {})
 
-        # Perform docking if requested
+        # Docking
         docking_affinity_value = None
-        docking_status_text = ""
-        if run_docking and _docking_extractor and receptor_path:
+        docking_md = ""
+        binding_interpretation = ""
+        
+        if run_docking and _docking_extractor:
             try:
-                progress(0.4, desc="Preparing ligand for docking...")
-                logger.info(f"Running docking for {receptor_display_name}...")
+                progress(0.35, desc=f"🧪 Preparing docking...")
+                
+                logger.info(f"="*60)
+                logger.info(f"DOCKING: {receptor_name}")
+                logger.info(f"Receptor: {receptor_display_name} (PDB: {receptor['pdb_id']})")
+                logger.info(f"Binding site: ({binding_site.get('center_x', 0):.1f}, {binding_site.get('center_y', 0):.1f}, {binding_site.get('center_z', 0):.1f})")
 
-                progress(
-                    0.5, desc=f"Running docking against {receptor_display_name}..."
-                )
-                # Try to dock using custom receptor path
-                affinity = _docking_extractor.dock_custom_receptor_path(
-                    mol, receptor_path
-                )
+                progress(0.50, desc=f"⚗️ Docking to {receptor_display_name}...")
 
-                progress(0.7, desc="Processing docking results...")
+                affinity = _docking_extractor.dock_single_receptor(mol, receptor_name)
+
+                progress(0.70, desc="📈 Analyzing results...")
 
                 if affinity is not None:
                     docking_affinity_value = affinity
-                    docking_status_text = f"✅ **Docking Successful**\n\nReceptor: {receptor_display_name}\n\n*More negative values indicate stronger binding*"
+                    
+                    logger.info(f"DOCKING RESULT: {affinity:.2f} kcal/mol")
+                    logger.info(f"="*60)
+                    
+                    # Binding strength interpretation
+                    if affinity < -9.0:
+                        strength = "🟢 Excellent"
+                        strength_desc = "Very high predicted binding affinity"
+                    elif affinity < -7.0:
+                        strength = "🟡 Good"
+                        strength_desc = "Strong predicted binding"
+                    elif affinity < -5.0:
+                        strength = "🟠 Moderate"
+                        strength_desc = "Moderate binding predicted"
+                    else:
+                        strength = "🔴 Weak"
+                        strength_desc = "Low binding affinity"
+                    
+                    docking_md = f"""### ⚗️ Docking Results
 
-                    # Add docking feature to feature vector (for other receptors, use default)
-                    all_docking_features = {
-                        name: -5.0 for name in _docking_extractor.receptor_names
-                    }
-                    # Use a generic key for custom receptors
-                    all_docking_features["custom_receptor"] = affinity
+| Metric | Value |
+|--------|-------|
+| **Binding Affinity** | **{affinity:.2f} kcal/mol** |
+| **Strength** | {strength} |
+| **Target** | {receptor_display_name} ({receptor['pdb_id']}) |
+| **Binding Site Ligand** | {binding_site.get('ligand_name', 'N/A')} |
+
+> *{strength_desc}. More negative = stronger binding.*
+"""
+                    binding_interpretation = f"{strength} ({affinity:.2f} kcal/mol)"
+
+                    # Add docking features
+                    all_docking_features = {name: -5.0 for name in _docking_extractor.receptor_names}
+                    all_docking_features[receptor_name] = affinity
                     docking_features_df = pd.DataFrame([all_docking_features])
                     features_df = pd.concat([features_df, docking_features_df], axis=1)
                 else:
-                    docking_status_text = f"⚠️ **Docking Failed**\n\nReceptor: {receptor_display_name}\n\nUsing default values. Check deployment logs for details."
-                    # Add default docking features
-                    all_docking_features = {
-                        name: -5.0 for name in _docking_extractor.receptor_names
-                    }
+                    docking_md = "⚠️ Docking failed - using default values"
+                    binding_interpretation = "N/A (docking failed)"
+                    all_docking_features = {name: -5.0 for name in _docking_extractor.receptor_names}
                     docking_features_df = pd.DataFrame([all_docking_features])
                     features_df = pd.concat([features_df, docking_features_df], axis=1)
+                    
             except Exception as e:
                 logger.error(f"Docking exception: {e}", exc_info=True)
-                docking_status_text = f"❌ **Docking Error**\n\n{str(e)}\n\nCheck deployment logs for full traceback."
-                # Add default docking features
-                all_docking_features = {
-                    name: -5.0 for name in _docking_extractor.receptor_names
-                }
+                docking_md = f"❌ Docking error: {str(e)[:50]}"
+                binding_interpretation = "Error"
+                all_docking_features = {name: -5.0 for name in _docking_extractor.receptor_names}
                 docking_features_df = pd.DataFrame([all_docking_features])
                 features_df = pd.concat([features_df, docking_features_df], axis=1)
 
-        progress(0.8, desc="Making prediction...")
-        # Make prediction
+        progress(0.80, desc="🤖 Running prediction...")
         predicted_class, probabilities = _predictor.predict(features_df)
 
-        progress(0.9, desc="Generating visualizations...")
+        progress(0.90, desc="🎨 Generating analysis...")
 
-        # Format prediction result as markdown
-        prediction_md = f"""## {predicted_class}
-
-*Based on molecular descriptors and docking analysis*
-        """
-
-        # Prepare probabilities dict for gr.Label (expects dict with class: confidence)
+        # Main prediction result
         probabilities_dict = {k: float(v) for k, v in probabilities.items()}
-
-        # Extract and display descriptors as DataFrame
-        key_descriptors = {
-            "MW": features_df.get("MW", [None])[0],
-            "LogP": features_df.get("LogP", [None])[0],
-            "HBD": features_df.get("HBD", [None])[0],
-            "HBA": features_df.get("HBA", [None])[0],
-            "TPSA": features_df.get("TPSA", [None])[0],
-            "Rotatable_Bonds": features_df.get("Rotatable_Bonds", [None])[0],
-            "QED": features_df.get("qed", [None])[0],
-            "SPS": features_df.get("SPS", [None])[0],
-        }
-        # Filter out None values
-        key_descriptors = {k: v for k, v in key_descriptors.items() if v is not None}
+        max_prob = max(probabilities_dict.values()) if probabilities_dict else 0
         
-        # Convert to DataFrame format
-        import tempfile
-        descriptors_df = pd.DataFrame([
-            {"Property": k, "Value": f"{v:.3f}" if isinstance(v, float) else str(v)}
-            for k, v in key_descriptors.items()
-        ])
+        if max_prob >= 0.7:
+            conf_level = "High confidence"
+            conf_emoji = "🟢"
+        elif max_prob >= 0.5:
+            conf_level = "Moderate confidence"
+            conf_emoji = "🟡"
+        else:
+            conf_level = "Low confidence"
+            conf_emoji = "🟠"
 
-        # Create comparison view with structure visualization
-        comparison_html = _visualizer.create_comparison_view(mol, receptor_path)
+        prediction_md = f"""# 🎯 {predicted_class}
 
-        # Add structure visualization to results if Molecule3D is available
-        structure_visualization = None
-        if HAS_MOLECULE3D and receptor_path and Path(receptor_path).exists():
-            structure_visualization = receptor_path
+{conf_emoji} **{conf_level}** ({max_prob*100:.0f}%)
 
-        # Create descriptor radar chart and save as temp file
-        graphs_img_path = None
-        if key_descriptors:
-            radar_fig = _result_visualizer.plot_descriptors_radar(key_descriptors)
+Predicted signaling bias for this ligand against **{receptor_display_name}**"""
+
+        # Drug-likeness analysis
+        lipinski_status = "✅ Pass" if drug_props["lipinski_pass"] else f"❌ {drug_props['lipinski_violations']} violations"
+        veber_status = "✅ Pass" if drug_props["veber_pass"] else "❌ Fail"
+        lead_status = "✅ Yes" if drug_props["lead_like"] else "❌ No"
+
+        drug_likeness_md = f"""### 💊 Drug-Likeness Assessment
+
+| Rule | Status | Details |
+|------|--------|---------|
+| **Lipinski's Ro5** | {lipinski_status} | MW≤500, LogP≤5, HBD≤5, HBA≤10 |
+| **Veber's Rules** | {veber_status} | RotBonds≤10, TPSA≤140 |
+| **Lead-Like** | {lead_status} | 250≤MW≤350, LogP≤3.5, RotBonds≤7 |
+
+**Key Properties:**
+- MW: {drug_props['mw']:.1f} | LogP: {drug_props['logp']:.2f} | TPSA: {drug_props['tpsa']:.1f}
+- HBD: {drug_props['hbd']} | HBA: {drug_props['hba']} | RotBonds: {drug_props['rot_bonds']}
+"""
+
+        # Result interpretation
+        interpretation_md = f"""### 🔍 What This Means
+
+**{predicted_class}** indicates this ligand may preferentially signal through the **{predicted_class.lower()} pathway** when bound to {receptor_display_name}.
+
+| Aspect | Finding |
+|--------|---------|
+| **Predicted Bias** | {predicted_class} |
+| **Confidence** | {max_prob*100:.0f}% ({conf_level.lower()}) |
+| **Binding** | {binding_interpretation if binding_interpretation else 'Docking disabled'} |
+| **Drug-likeness** | {'Favorable' if drug_props['lipinski_pass'] else 'Needs optimization'} |
+
+> **Note:** This is a computational prediction. Experimental validation is recommended.
+"""
+
+        # Descriptors table
+        descriptors_data = [
+            {"Property": "Molecular Weight", "Value": f"{drug_props['mw']:.1f}", "Rule": "≤500 (Lipinski)"},
+            {"Property": "LogP", "Value": f"{drug_props['logp']:.2f}", "Rule": "≤5 (Lipinski)"},
+            {"Property": "H-Bond Donors", "Value": str(drug_props['hbd']), "Rule": "≤5 (Lipinski)"},
+            {"Property": "H-Bond Acceptors", "Value": str(drug_props['hba']), "Rule": "≤10 (Lipinski)"},
+            {"Property": "TPSA (Å²)", "Value": f"{drug_props['tpsa']:.1f}", "Rule": "≤140 (Veber)"},
+            {"Property": "Rotatable Bonds", "Value": str(drug_props['rot_bonds']), "Rule": "≤10 (Veber)"},
+        ]
+        if docking_affinity_value:
+            descriptors_data.append({
+                "Property": "Binding Affinity", 
+                "Value": f"{docking_affinity_value:.2f} kcal/mol",
+                "Rule": "<-7 (good)"
+            })
+        descriptors_df = pd.DataFrame(descriptors_data)
+
+        # Radar chart
+        radar_img_path = None
+        try:
+            radar_data = {
+                "MW": drug_props['mw'],
+                "LogP": drug_props['logp'],
+                "HBD": drug_props['hbd'],
+                "HBA": drug_props['hba'],
+                "TPSA": drug_props['tpsa'],
+                "RotBonds": drug_props['rot_bonds'],
+            }
+            radar_fig = _result_visualizer.plot_descriptors_radar(radar_data)
             import tempfile
             with tempfile.NamedTemporaryFile(suffix=".png", delete=False, dir="/tmp") as tmp:
-                graphs_img_path = tmp.name
-                radar_fig.savefig(graphs_img_path, format="png", dpi=150, bbox_inches="tight")
+                radar_img_path = tmp.name
+                radar_fig.savefig(radar_img_path, format="png", dpi=150, bbox_inches="tight")
             plt.close(radar_fig)
+        except Exception as e:
+            logger.warning(f"Could not generate radar chart: {e}")
 
-        progress(1.0, desc="Complete!")
-
-        # Update docking visibility based on whether we have a value
-        docking_affinity_update = gr.update(value=docking_affinity_value, visible=docking_affinity_value is not None)
+        progress(1.0, desc="✅ Complete!")
 
         return (
             prediction_md,
             probabilities_dict,
+            drug_likeness_md,
+            interpretation_md,
+            docking_md,
+            radar_img_path,
+            gr.update(visible=True),   # Show results
+            gr.update(visible=False),  # Hide loading
             descriptors_df,
-            docking_affinity_update,
-            docking_status_text,
-            comparison_html,
-            graphs_img_path,
-            structure_visualization,
+            binding_interpretation,
         )
 
     except Exception as e:
         logger.error(f"Prediction error: {e}", exc_info=True)
-        return (f"❌ Error: {str(e)}", {}, None, gr.update(visible=False), "", "", None, None)
+        return (
+            f"❌ **Error:** {str(e)}",
+            {}, "", "", "", None, gr.update(visible=True), gr.update(visible=False), None, ""
+        )
+
+
+def start_loading():
+    """Show loading state and hide results."""
+    return (gr.update(visible=True), gr.update(visible=False))
 
 
 # Initialize app
@@ -474,499 +453,247 @@ logger.info("Initializing app...")
 if not initialize_app():
     logger.error("Failed to initialize app. Some features may not work.")
 
-# Custom CSS for dark mode support, progress bar visibility, and 3Dmol.js compatibility
-custom_css = """
-<style>
-:root {
-    --card-bg: var(--background-fill-secondary);
-    --input-bg: var(--background-fill-primary);
-    --text-primary: var(--body-text-color);
-    --text-secondary: var(--body-text-color-subdued);
-    --border: var(--border-color-primary);
-    --error: #e74c3c;
-    --warning-bg: #fff3cd;
-    --warning-text: #856404;
-    --success: #2ecc71;
-    --info-bg: #e3f2fd;
-    --info-text: #1565c0;
-}
 
-/* Dark mode overrides */
-.dark {
-    --warning-bg: rgba(255, 193, 7, 0.15);
-    --warning-text: #ffc107;
-    --info-bg: rgba(33, 150, 243, 0.15);
-    --info-text: #64b5f6;
-    --error: #ff6b6b;
-    --success: #51cf66;
-}
-
-/* Message containers */
-.message-container {
-    padding: 20px;
-    border-radius: 8px;
-    margin: 10px 0;
-    border: 1px solid var(--border);
-}
-
-.message-error {
-    background: rgba(231, 76, 60, 0.1);
-    color: var(--error);
-    border-color: var(--error);
-}
-
-.message-warning {
-    background: var(--warning-bg);
-    color: var(--warning-text);
-    border-color: var(--warning-text);
-}
-
-.message-info {
-    background: var(--info-bg);
-    color: var(--info-text);
-    border-color: var(--info-text);
-}
-
-/* Info cards */
-.info-card {
-    margin-top: 15px;
-    padding: 15px;
-    background: var(--card-bg);
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    color: var(--text-primary);
-}
-
-.info-card code {
-    background: var(--input-bg);
-    padding: 5px;
-    border-radius: 4px;
-    display: block;
-    margin-top: 5px;
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-}
-
-.info-card small {
-    opacity: 0.7;
-}
-
-/* Ensure 3Dmol.js viewers are properly styled */
-.receptor-viewer {
-    position: relative;
-}
-
-.receptor-viewer canvas {
-    border-radius: 8px;
-}
-
-/* Progress bar styling for better visibility */
-.progress-bar-container {
-    background: var(--background-fill-secondary, #f0f0f0) !important;
-    border-radius: 8px !important;
-    padding: 10px !important;
-    margin: 10px 0 !important;
-    border: 1px solid var(--border-color-primary, #ddd) !important;
-}
-
-.progress-bar {
-    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%) !important;
-    height: 8px !important;
-    border-radius: 4px !important;
-    transition: width 0.3s ease !important;
-}
-
-.progress-text {
-    color: var(--body-text-color, #333) !important;
-    font-weight: 500 !important;
-    margin-top: 5px !important;
-    font-size: 14px !important;
-}
-
-/* Dark mode progress bar */
-.dark .progress-bar-container {
-    background: var(--background-fill-secondary, #2a2a2a) !important;
-    border-color: var(--border-color-primary, #444) !important;
-}
-
-.dark .progress-text {
-    color: var(--body-text-color, #e0e0e0) !important;
-}
-
-/* Gradio progress component styling */
-.gr-progress {
-    background: var(--background-fill-secondary, #f0f0f0) !important;
-    border: 1px solid var(--border-color-primary, #ddd) !important;
-    border-radius: 8px !important;
-    padding: 15px !important;
-    margin: 15px 0 !important;
-}
-
-.gr-progress .progress-bar {
-    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%) !important;
-    height: 10px !important;
-    border-radius: 5px !important;
-}
-
-.gr-progress .progress-text {
-    color: var(--body-text-color, #333) !important;
-    font-size: 14px !important;
-    font-weight: 500 !important;
-    margin-top: 8px !important;
-}
-</style>
-
-<!-- Preload 3Dmol.js in the main page context -->
-<script src="https://cdn.jsdelivr.net/npm/3dmol@2.0.2/build/3Dmol-min.js" async></script>
-"""
-
-# Create Gradio interface with dark mode support
+# ==================== GRADIO UI ====================
 with gr.Blocks(
-    title="🧬 CancerAg: Interactive Biased Agonism Prediction",
-    theme=gr.themes.Soft(primary_hue="purple", secondary_hue="gray"),
+    title="CancerAg: Biased Agonism Prediction",
+    theme=gr.themes.Soft(
+        primary_hue="purple",
+        secondary_hue="blue",
+        neutral_hue="slate",
+        font=gr.themes.GoogleFont("Inter"),
+    ),
 ) as app:
-    gr.HTML(custom_css)
+    
+    # Header
     gr.Markdown(
         """
-        # 🧬 CancerAg: Interactive Biased Agonism Prediction
-        
-        **Predict GPCR ligand signaling bias with interactive receptor selection and 3D visualization**
-        
-        Select a receptor, visualize structures, and predict bias categories using machine learning.
+        # 🧬 CancerAg
+        ### Predict GPCR Ligand Signaling Bias
         """
     )
 
-    with gr.Tabs():
-        with gr.Tab("🔬 Interactive Prediction"):
-            gr.Markdown("### Step 1: Select Receptor")
-
-            # Receptor input method selection
-            receptor_input_method = gr.Radio(
-                choices=["existing", "pdb_id", "upload"],
-                value="existing",
-                label="Receptor Input Method",
-                info="Choose how to provide the receptor structure",
-                elem_id="receptor_method",
-            )
-
-            # Store the selected receptor path (hidden state)
-            current_receptor_path = gr.State(value=None)
-
-            with gr.Row():
-                with gr.Column(scale=1):
-                    # Tab 1: Existing receptors
-                    with gr.Group(visible=True) as existing_group:
+    with gr.Tabs() as main_tabs:
+        
+        # ==================== PREDICTION TAB ====================
+        with gr.Tab("🔬 Predict", id="predict-tab"):
+            
+            with gr.Row(equal_height=False):
+                
+                # ========== INPUT COLUMN ==========
+                with gr.Column(scale=1, min_width=400):
+                    
+                    # Receptor Selection
+                    with gr.Group():
+                        gr.Markdown("### 1️⃣ Select Receptor")
+                        
                         receptor_dropdown = gr.Dropdown(
                             choices=get_receptor_list(),
-                            label="Available Receptors",
-                            info="Select from pre-processed GPCR receptors",
+                            label="Target Receptor",
+                            info="43 GPCR structures available",
                             interactive=True,
                         )
-
-                    # Tab 2: PDB ID input
-                    with gr.Group(visible=False) as pdb_id_group:
-                        pdb_id_input = gr.Textbox(
-                            label="PDB ID",
-                            placeholder="e.g., 1F88, 3SN6",
-                            info="Enter a PDB identifier to fetch and process",
-                            interactive=True,
+                        
+                        receptor_info = gr.Markdown(value="")
+                        current_receptor_name = gr.State(value=None)
+                    
+                    # Ligand Input
+                    with gr.Group():
+                        gr.Markdown("### 2️⃣ Enter Molecule")
+                        
+                        smiles_input = gr.Textbox(
+                            label="SMILES",
+                            placeholder="e.g., CC(=O)OC1=CC=CC=C1C(=O)O",
+                            lines=1,
                         )
-                        fetch_pdb_btn = gr.Button(
-                            "🔍 Fetch & Process PDB", variant="secondary"
+                        
+                        ligand_info = gr.Markdown(value="")
+                        
+                        ligand_image = gr.Image(
+                            label="Structure",
+                            type="filepath",
+                            height=180,
+                            show_label=False,
                         )
-
-                    # Tab 3: File upload
-                    with gr.Group(visible=False) as upload_group:
-                        pdb_file_upload = gr.File(
-                            label="Upload PDB File",
-                            file_types=[".pdb"],
+                        
+                        canonical_smiles_state = gr.State(value=None)
+                        
+                        with gr.Row():
+                            ex_btn1 = gr.Button("Aspirin", size="sm", variant="secondary")
+                            ex_btn2 = gr.Button("Ibuprofen", size="sm", variant="secondary")
+                            ex_btn3 = gr.Button("Nicotine", size="sm", variant="secondary")
+                    
+                    # Run
+                    with gr.Group():
+                        gr.Markdown("### 3️⃣ Run")
+                        
+                        run_docking_checkbox = gr.Checkbox(
+                            label="🧪 Enable Docking",
+                            value=True,
+                            info="~1-2 min",
                         )
-                        process_upload_btn = gr.Button(
-                            "📤 Process Uploaded File", variant="secondary"
+                        
+                        predict_btn = gr.Button(
+                            "🚀 Predict Bias",
+                            variant="primary",
+                            size="lg",
                         )
-
-                    # Receptor visualization (shared across all methods)
+                
+                # ========== RECEPTOR VIEW ==========
+                with gr.Column(scale=1, min_width=400):
+                    
                     if HAS_MOLECULE3D:
+                        gr.Markdown("### Receptor 3D Structure")
                         receptor_visualization = Molecule3D(
-                            label="Receptor Structure",
-                            reps=[
-                                {"model": 0, "style": "cartoon", "color": "spectrum"}
-                            ],
-                            height=400,
-                        )
-                        receptor_info = gr.HTML(
-                            label="Receptor Information",
-                            value='<div style="text-align:center;padding:20px;color:var(--body-text-color, #666);">Select a receptor input method</div>',
+                            label="3D View",
+                            reps=[{"model": 0, "style": "cartoon", "color": "spectrum"}],
+                            height=450,
+                            show_label=False,
                         )
                     else:
-                        receptor_visualization = gr.HTML(
-                            label="Receptor Structure",
-                            value='<div style="text-align:center;padding:50px;color:var(--body-text-color, #666);">Select a receptor input method</div>',
+                        receptor_visualization = gr.Markdown("*3D viewer requires `gradio-molecule3d`*")
+            
+            # ==================== LOADING ====================
+            with gr.Column(visible=False) as loading_section:
+                gr.Markdown("---")
+                gr.Markdown(
+                    """
+                    ## ⏳ Analyzing...
+                    
+                    Please wait while we process your molecule. This takes 1-2 minutes with docking enabled.
+                    """
+                )
+            
+            # ==================== RESULTS ====================
+            with gr.Column(visible=False) as results_section:
+                gr.Markdown("---")
+                
+                with gr.Row():
+                    # Prediction
+                    with gr.Column(scale=1):
+                        prediction_output = gr.Markdown(value="")
+                        
+                    # Probabilities
+                    with gr.Column(scale=1):
+                        probabilities_output = gr.Label(
+                            label="Class Probabilities",
+                            num_top_classes=5,
                         )
-                        receptor_info = gr.HTML()
+                
+                with gr.Row():
+                    # Interpretation
+                    with gr.Column(scale=1):
+                        interpretation_md = gr.Markdown(value="")
+                    
+                    # Drug-likeness
+                    with gr.Column(scale=1):
+                        drug_likeness_md = gr.Markdown(value="")
+                
+                # Docking results
+                docking_md = gr.Markdown(value="")
+                
+                with gr.Row():
+                    # Radar chart
+                    with gr.Column(scale=1):
+                        gr.Markdown("### 📊 Molecular Profile")
+                        radar_chart = gr.Image(
+                            type="filepath",
+                            height=300,
+                            show_label=False,
+                        )
+                    
+                    # Properties table
+                    with gr.Column(scale=1):
+                        gr.Markdown("### 📋 Properties")
+                        descriptors_output = gr.DataFrame(
+                            headers=["Property", "Value", "Rule"],
+                            interactive=False,
+                        )
+                
+                # Hidden state for binding interpretation
+                binding_interpretation_state = gr.State(value="")
 
-                with gr.Column(scale=1):
-                    gr.Markdown("### Step 2: Enter Ligand")
-                    smiles_input = gr.Textbox(
-                        label="SMILES String",
-                        placeholder="Enter SMILES string, e.g., CCO (ethanol)",
-                        lines=3,
-                        info="Enter the molecular structure in SMILES notation",
-                    )
-                    ligand_visualization = gr.HTML(
-                        label="Ligand Structure",
-                        value='<div style="text-align:center;padding:50px;color:var(--body-text-color, #666);">Enter a SMILES string to visualize</div>',
-                    )
-
-            gr.Markdown("### Step 3: Run Analysis")
-
-            with gr.Row():
-                run_docking_checkbox = gr.Checkbox(
-                    label="Perform Docking Analysis",
-                    value=True,
-                    info="Dock the ligand against the selected receptor (takes 1-2 minutes)",
-                )
-                predict_btn = gr.Button(
-                    "🚀 Predict Bias Category",
-                    variant="primary",
-                    size="lg",
-                )
-
-            # Update UI visibility based on input method
-            def update_input_visibility(method: str):
-                """Show/hide input groups based on selected method."""
-                return (
-                    gr.update(visible=(method == "existing")),
-                    gr.update(visible=(method == "pdb_id")),
-                    gr.update(visible=(method == "upload")),
-                )
-
-            receptor_input_method.change(
-                fn=update_input_visibility,
-                inputs=receptor_input_method,
-                outputs=[existing_group, pdb_id_group, upload_group],
-            )
-
-            # Update visualizations for each input method
+            # ==================== EVENTS ====================
+            
+            ex_btn1.click(fn=lambda: "CC(=O)OC1=CC=CC=C1C(=O)O", outputs=smiles_input)
+            ex_btn2.click(fn=lambda: "CC(C)Cc1ccc(cc1)[C@@H](C)C(=O)O", outputs=smiles_input)
+            ex_btn3.click(fn=lambda: "CN1CCC[C@H]1c2cccnc2", outputs=smiles_input)
+            
             if HAS_MOLECULE3D:
+                def update_receptor(receptor_name: str):
+                    pdb_path, info_md = visualize_receptor(receptor_name)
+                    return pdb_path if pdb_path else None, info_md, receptor_name
 
-                def update_receptor_visualization(
-                    method: str, receptor_name: str, pdb_id: str, uploaded_file
-                ) -> Tuple[Optional[str], str, Optional[str]]:
-                    """Update receptor visualization using Molecule3D component."""
-                    pdb_path, info = get_receptor_path_from_input(
-                        method, receptor_name, pdb_id, uploaded_file
-                    )
-                    # Molecule3D expects file path as string or None
-                    return pdb_path if pdb_path else None, info, pdb_path
-
-                # Existing receptors
                 receptor_dropdown.change(
-                    fn=lambda name: update_receptor_visualization(
-                        "existing", name, "", None
-                    ),
+                    fn=update_receptor,
                     inputs=receptor_dropdown,
-                    outputs=[
-                        receptor_visualization,
-                        receptor_info,
-                        current_receptor_path,
-                    ],
-                )
-
-                # PDB ID
-                fetch_pdb_btn.click(
-                    fn=lambda pdb_id: update_receptor_visualization(
-                        "pdb_id", "", pdb_id, None
-                    ),
-                    inputs=pdb_id_input,
-                    outputs=[
-                        receptor_visualization,
-                        receptor_info,
-                        current_receptor_path,
-                    ],
-                )
-
-                # File upload
-                process_upload_btn.click(
-                    fn=lambda file: update_receptor_visualization(
-                        "upload", "", "", file
-                    ),
-                    inputs=pdb_file_upload,
-                    outputs=[
-                        receptor_visualization,
-                        receptor_info,
-                        current_receptor_path,
-                    ],
+                    outputs=[receptor_visualization, receptor_info, current_receptor_name],
                 )
             else:
-
-                def update_receptor_html(
-                    method: str, receptor_name: str, pdb_id: str, uploaded_file
-                ) -> Tuple[str, Optional[str]]:
-                    """Update receptor visualization using HTML fallback."""
-                    _, info = get_receptor_path_from_input(
-                        method, receptor_name, pdb_id, uploaded_file
-                    )
-                    pdb_path, _ = get_receptor_path_from_input(
-                        method, receptor_name, pdb_id, uploaded_file
-                    )
-                    return info, pdb_path
-
                 receptor_dropdown.change(
-                    fn=lambda name: update_receptor_html("existing", name, "", None),
+                    fn=lambda n: (visualize_receptor(n)[1], n),
                     inputs=receptor_dropdown,
-                    outputs=[receptor_visualization, current_receptor_path],
-                )
-
-                fetch_pdb_btn.click(
-                    fn=lambda pdb_id: update_receptor_html("pdb_id", "", pdb_id, None),
-                    inputs=pdb_id_input,
-                    outputs=[receptor_visualization, current_receptor_path],
-                )
-
-                process_upload_btn.click(
-                    fn=lambda file: update_receptor_html("upload", "", "", file),
-                    inputs=pdb_file_upload,
-                    outputs=[receptor_visualization, current_receptor_path],
+                    outputs=[receptor_info, current_receptor_name],
                 )
 
             smiles_input.change(
-                fn=visualize_ligand,
+                fn=validate_and_visualize_ligand,
                 inputs=smiles_input,
-                outputs=ligand_visualization,
+                outputs=[ligand_image, ligand_info, canonical_smiles_state],
             )
 
-            # Results section
-            gr.Markdown("### 📊 Results")
-
-            with gr.Row():
-                prediction_output = gr.Markdown(label="🎯 Predicted Bias Category")
-
-            # Structure visualization in results (if Molecule3D available)
-            if HAS_MOLECULE3D:
-                with gr.Row():
-                    result_structure_viewer = Molecule3D(
-                        label="Receptor Structure (Results)",
-                        reps=[{"model": 0, "style": "cartoon", "color": "spectrum"}],
-                        height=400,
-                        visible=False,
-                    )
-
-            with gr.Row():
-                with gr.Column():
-                    probabilities_output = gr.Label(label="Class Probabilities", num_top_classes=5)
-                with gr.Column():
-                    docking_affinity = gr.Number(label="Binding Affinity (kcal/mol)", precision=2, visible=False)
-                    docking_status = gr.Markdown(label="Docking Status")
-
-            with gr.Row():
-                comparison_output = gr.HTML(label="Ligand-Receptor Comparison")
-
-            with gr.Row():
-                graphs_output = gr.Image(label="Additional Visualizations", type="filepath")
-
-            with gr.Row():
-                descriptors_output = gr.DataFrame(label="Molecular Descriptors", headers=["Property", "Value"])
-
-            # Connect prediction button
-            if HAS_MOLECULE3D:
-                predict_btn.click(
-                    fn=run_prediction,
-                    inputs=[smiles_input, current_receptor_path, run_docking_checkbox],
-                    outputs=[
-                        prediction_output,
-                        probabilities_output,
-                        descriptors_output,
-                        docking_affinity,
-                        docking_status,
-                        comparison_output,
-                        graphs_output,
-                        result_structure_viewer,
-                    ],
-                )
-            else:
-                predict_btn.click(
-                    fn=lambda smiles, path, docking: run_prediction(
-                        smiles, path, docking
-                    )[:-1],  # Exclude structure_visualization for non-Molecule3D
-                    inputs=[smiles_input, current_receptor_path, run_docking_checkbox],
-                    outputs=[
-                        prediction_output,
-                        probabilities_output,
-                        descriptors_output,
-                        docking_affinity,
-                        docking_status,
-                        comparison_output,
-                        graphs_output,
-                    ],
-                )
-
-            # Example molecules
-            gr.Markdown("### 💡 Example Molecules")
-            example_smiles = [
-                "CCO",  # Ethanol
-                "CC(=O)OC1=CC=CC=C1C(=O)O",  # Aspirin
-                "CN1CCC[C@H]1c2cccnc2",  # Nicotine
-            ]
-            gr.Examples(
-                examples=[[smiles] for smiles in example_smiles],
-                inputs=smiles_input,
-                label="Click to load example",
+            predict_btn.click(
+                fn=start_loading,
+                outputs=[loading_section, results_section],
+            ).then(
+                fn=run_prediction,
+                inputs=[smiles_input, current_receptor_name, run_docking_checkbox],
+                outputs=[
+                    prediction_output,
+                    probabilities_output,
+                    drug_likeness_md,
+                    interpretation_md,
+                    docking_md,
+                    radar_chart,
+                    results_section,
+                    loading_section,
+                    descriptors_output,
+                    binding_interpretation_state,
+                ],
             )
 
+        # ==================== ABOUT ====================
         with gr.Tab("ℹ️ About"):
             gr.Markdown(
                 """
                 ## About CancerAg
                 
-                **CancerAg** is a machine learning platform for predicting biased agonism in GPCR ligands.
+                Machine learning platform for predicting GPCR ligand signaling bias.
                 
-                ### Features
-                - 🎯 **Bias Prediction**: Predict signaling bias categories using trained ML models
-                - 🔬 **Interactive Receptor Selection**: Choose from 50+ available GPCR structures
-                - 🧪 **3D Visualization**: View receptor and ligand structures in 3D
-                - ⚗️ **Molecular Docking**: Perform docking analysis to predict binding affinities
-                - 📊 **Comprehensive Analysis**: View descriptors, probabilities, and visualizations
+                ### Bias Categories
+                | Category | Description |
+                |----------|-------------|
+                | **G protein** | G protein-biased signaling |
+                | **β Arrestin** | β-arrestin-biased signaling |
+                | **ERK** | ERK pathway bias |
+                | **G protein selectivity** | Selective G protein coupling |
+                | **Agonist** | Balanced agonist |
                 
-                ### Supported Bias Categories
-                - **G protein** - G protein-biased signaling
-                - **β Arrestin** - β-arrestin-biased signaling
-                - **ERK** - ERK pathway bias
-                - **G protein selectivity** - Selective G protein coupling
-                - **Agonist** - Non-biased agonist
+                ### Model Info
+                - **Algorithm:** Random Forest
+                - **Accuracy:** ~77%
+                - **Features:** 200+ descriptors + docking
+                - **Receptors:** 43 validated structures
                 
-                ### Model Performance
-                - **Test Accuracy**: ~77%
-                - **F1-Score**: ~0.60 (macro-averaged)
-                - **Features**: 200+ molecular descriptors + docking affinities
-                
-                ### Citation
-                If you use CancerAg in your research, please cite:
-                
-                > CancerAg: A Machine Learning Platform for GPCR Biased Agonism Prediction
-                
-                ---
-                
-                **Note**: Predictions should be validated experimentally. This tool is for research purposes.
+                > ⚠️ Predictions should be validated experimentally.
                 """
             )
 
-    gr.Markdown(
-        """
-        ---
-        <div style="text-align:center;color:#666;padding:20px;">
-            <p>🧬 CancerAg - GPCR Biased Agonism Prediction Platform</p>
-            <p style="font-size:12px;">Built with ❤️ for computational drug discovery</p>
-        </div>
-        """
-    )
+    gr.Markdown("---\n**CancerAg** • GPCR Bias Prediction")
 
 if __name__ == "__main__":
     import os
-
-    # Use PORT environment variable for Cloud Run compatibility
     port = int(os.environ.get("PORT", 7860))
-
     app.launch(
         share=False,
         server_name="0.0.0.0",
