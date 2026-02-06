@@ -186,25 +186,33 @@ class DockingFeatureExtractor:
         if not pdb_id:
             return None
 
+        # First, check the pre-converted receptors directory (used in Docker)
+        pre_converted_path = self.base_path / "data" / "processed" / "receptors_prepared" / f"{pdb_id}.pdbqt"
+        if pre_converted_path.exists() and pre_converted_path.stat().st_size > 100:
+            logger.info(f"Using pre-converted receptor: {pre_converted_path}")
+            return str(pre_converted_path)
+
+        # Fallback: check interim directory (for backward compatibility)
+        prepared_dir = self.base_path / "data" / "interim" / "docking_results" / "receptors"
+        prepared_path = prepared_dir / f"{receptor_name}.pdbqt"
+        if prepared_path.exists() and prepared_path.stat().st_size > 100:
+            logger.info(f"Using cached receptor: {prepared_path}")
+            return str(prepared_path)
+
+        # If not pre-converted, prepare it now
         pdb_path = self.receptors_dir / f"{pdb_id}.pdb"
         if not pdb_path.exists():
             logger.warning(f"Receptor PDB file not found: {pdb_path}")
             return None
 
-        # Check if prepared receptor already exists
-        prepared_dir = (
-            self.base_path / "data" / "interim" / "docking_results" / "receptors"
-        )
+        # Create interim directory for runtime conversions
         prepared_dir.mkdir(parents=True, exist_ok=True)
-        prepared_path = prepared_dir / f"{receptor_name}.pdbqt"
-
-        if prepared_path.exists():
-            return str(prepared_path)
 
         # Prepare receptor using obabel
         try:
             import subprocess
 
+            logger.info(f"Converting receptor {receptor_name} to PDBQT (this may take 30-60s)...")
             result = subprocess.run(
                 [
                     "obabel",
@@ -215,6 +223,7 @@ class DockingFeatureExtractor:
                 ],
                 capture_output=True,
                 text=True,
+                timeout=90  # 90 second timeout for conversion
             )
 
             if result.returncode != 0:
@@ -223,11 +232,16 @@ class DockingFeatureExtractor:
                 )
                 return None
 
-            if prepared_path.exists():
+            if prepared_path.exists() and prepared_path.stat().st_size > 100:
+                logger.info(f"Successfully converted {receptor_name} to PDBQT")
                 return str(prepared_path)
             else:
+                logger.warning(f"Prepared receptor file is empty or missing: {prepared_path}")
                 return None
 
+        except subprocess.TimeoutExpired:
+            logger.error(f"Receptor preparation timed out for {receptor_name} after 90s")
+            return None
         except Exception as e:
             logger.error(f"Failed to prepare receptor {receptor_name}: {e}")
             return None
@@ -286,7 +300,8 @@ class DockingFeatureExtractor:
 
             logger.info(f"Running docking for {receptor_name}...")
             # Don't use capture_output=True because we're redirecting to log_path via shell
-            result = subprocess.run(cmd, shell=True, text=True, timeout=300)
+            # Timeout reduced from 300s to 120s (2 minutes) - typical docking takes 30-60s
+            result = subprocess.run(cmd, shell=True, text=True, timeout=120)
 
             # Log the return code for debugging
             if result.returncode != 0:
@@ -341,7 +356,12 @@ class DockingFeatureExtractor:
             return None
 
         except subprocess.TimeoutExpired:
-            logger.warning(f"Docking timeout for {receptor_name}")
+            logger.error(f"Docking timeout for {receptor_name} after 120s - receptor may need pre-conversion")
+            # Clean up
+            if os.path.exists(out_path):
+                os.unlink(out_path)
+            if os.path.exists(log_path):
+                os.unlink(log_path)
             return None
         except Exception as e:
             logger.error(f"Docking error for {receptor_name}: {e}")

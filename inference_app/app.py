@@ -259,14 +259,14 @@ def run_prediction(
         
         if run_docking and _docking_extractor:
             try:
-                progress(0.35, desc=f"🧪 Preparing docking...")
-                
+                progress(0.35, desc=f"🧪 Preparing receptor...")
+
                 logger.info(f"="*60)
                 logger.info(f"DOCKING: {receptor_name}")
                 logger.info(f"Receptor: {receptor_display_name} (PDB: {receptor['pdb_id']})")
                 logger.info(f"Binding site: ({binding_site.get('center_x', 0):.1f}, {binding_site.get('center_y', 0):.1f}, {binding_site.get('center_z', 0):.1f})")
 
-                progress(0.50, desc=f"⚗️ Docking to {receptor_display_name}...")
+                progress(0.50, desc=f"⚗️ Docking (30-60s)...")
 
                 affinity = _docking_extractor.dock_single_receptor(mol, receptor_name)
 
@@ -530,7 +530,7 @@ with gr.Blocks(
                         run_docking_checkbox = gr.Checkbox(
                             label="🧪 Enable Docking",
                             value=True,
-                            info="~1-2 min",
+                            info="30-60s per prediction",
                         )
                         
                         predict_btn = gr.Button(
@@ -559,8 +559,8 @@ with gr.Blocks(
                 gr.Markdown(
                     """
                     ## ⏳ Analyzing...
-                    
-                    Please wait while we process your molecule. This takes 1-2 minutes with docking enabled.
+
+                    Please wait while we process your molecule. Docking typically takes 30-60 seconds.
                     """
                 )
             
