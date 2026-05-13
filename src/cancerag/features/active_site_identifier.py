@@ -1,17 +1,55 @@
+"""
+Active-site identification for receptor docking.
+
+Owns:
+- ``ActiveSiteIdentifier`` — picks the best PDB per receptor and extracts
+  a docking-box from its co-crystal ligand.
+- ``StructureMetrics`` / ``score_structure`` — pure scoring helpers used by
+  the picker (extracted so they're testable without touching disk).
+"""
+
+from __future__ import annotations
+
 import json
 import logging
 import os
+from dataclasses import dataclass
 
 from Bio.PDB import PDBParser
 from tqdm import tqdm
 
+from cancerag.preprocessing.het_resnames import LIGAND_AUTO_DETECT_IGNORE
 from cancerag.preprocessing.receptor_preprocessor import extract_binding_site
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
+
+
+# ----------------------------------------------------------- structure score
+
+
+@dataclass(frozen=True)
+class StructureMetrics:
+    resolution: float = float("inf")
+    has_ligand: bool = False
+    completeness: float = 0.0
+
+
+def score_structure(metrics: StructureMetrics) -> float:
+    """Continuous score for picking the best PDB per receptor.
+
+    +50 for the presence of any non-buffer co-crystal ligand.
+    Linear penalty above 2.0 A resolution (so 2.0 A beats 2.8 A beats 3.5 A).
+    Up to +20 for completeness (rough atom-count proxy in [0, 1]).
+
+    Replaces the legacy ``if<3.0 / elif<2.5`` scheme in which the
+    excellent-resolution branch was unreachable.
+    """
+    score = 0.0
+    if metrics.has_ligand:
+        score += 50.0
+    score -= 10.0 * max(0.0, metrics.resolution - 2.0)
+    score += max(0.0, min(1.0, metrics.completeness)) * 20.0
+    return score
 
 
 class ActiveSiteIdentifier:
@@ -71,26 +109,16 @@ class ActiveSiteIdentifier:
                         pass
                     break
 
-            # Check for co-crystallized ligands
+            # Check for co-crystallized ligands.
+            # Use the curated single source of truth for HETATMs to ignore;
+            # the previous local 13-name list missed lipids, detergents,
+            # glycans, and crystallization additives that are pervasive in
+            # GPCR PDBs and were frequently picked as "the ligand".
             ligand_residues = set()
             for line in lines:
                 if line.startswith("HETATM"):
-                    res_name = line[17:20].strip()
-                    if res_name not in [
-                        "HOH",
-                        "WAT",
-                        "SO4",
-                        "GOL",
-                        "PO4",
-                        "EDO",
-                        "MG",
-                        "CA",
-                        "ZN",
-                        "MN",
-                        "CL",
-                        "NA",
-                        "K",
-                    ]:
+                    res_name = line[17:20].strip().upper()
+                    if res_name and res_name not in LIGAND_AUTO_DETECT_IGNORE:
                         metrics["has_ligand"] = True
                         ligand_residues.add(res_name)
 
@@ -105,15 +133,16 @@ class ActiveSiteIdentifier:
                 atom_count / 1000.0, 1.0
             )  # Rough completeness metric
 
-            # Calculate overall score
+            # Calculate overall score.
+            # Bug fix: the legacy `if<3.0 / elif<2.5` could never reach the
+            # excellent-resolution branch because everything <2.5 is also
+            # <3.0. Replaced with a continuous penalty so a 2.0 A structure
+            # is preferred over a 2.8 A one rather than tied.
             score = 0.0
             if metrics["has_ligand"]:
-                score += 50.0  # High bonus for having ligand
-            if metrics["resolution"] < 3.0:
-                score += 30.0  # Good resolution bonus
-            elif metrics["resolution"] < 2.5:
-                score += 40.0  # Excellent resolution bonus
-            score += metrics["completeness"] * 20.0  # Completeness bonus
+                score += 50.0
+            score -= 10.0 * max(0.0, metrics["resolution"] - 2.0)
+            score += metrics["completeness"] * 20.0
 
             metrics["score"] = score
 
