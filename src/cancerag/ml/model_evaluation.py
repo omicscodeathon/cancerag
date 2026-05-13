@@ -600,6 +600,123 @@ def run_model_evaluation(
     return evaluation_results
 
 
+# =====================================================================
+# Stage 10 — reporting suite (bootstrap CIs, per-receptor metrics).
+# Macro-F1 leads (Reviewer 2 explicitly demanded this on the imbalanced
+# 5-class problem). Accuracy is intentionally absent from `report_metrics`.
+# =====================================================================
+
+
+from typing import Callable  # noqa: E402
+
+from sklearn.metrics import (  # noqa: E402
+    balanced_accuracy_score,
+    confusion_matrix,
+    f1_score,
+)
+
+
+def bootstrap_ci(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    metric: Callable[..., float],
+    *,
+    n_boot: int = 1000,
+    seed: int = 42,
+    **metric_kwargs,
+) -> tuple[float, float, float]:
+    """Return ``(lower_2.5%, median, upper_97.5%)`` bootstrap CI for ``metric``."""
+    rng = np.random.default_rng(seed)
+    n = len(y_true)
+    if n == 0:
+        return (float("nan"), float("nan"), float("nan"))
+    scores = np.empty(n_boot)
+    for i in range(n_boot):
+        idx = rng.integers(0, n, n)
+        try:
+            scores[i] = metric(y_true[idx], y_pred[idx], **metric_kwargs)
+        except Exception:
+            scores[i] = float("nan")
+    lo, mid, hi = np.nanpercentile(scores, [2.5, 50.0, 97.5])
+    return float(lo), float(mid), float(hi)
+
+
+def report_metrics(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    *,
+    bootstrap_n: int = 1000,
+    seed: int = 42,
+) -> dict:
+    """Headline metrics for a held-out evaluation."""
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+
+    macro_f1_lo, macro_f1_med, macro_f1_hi = bootstrap_ci(
+        y_true, y_pred, f1_score,
+        n_boot=bootstrap_n, seed=seed, average="macro",
+    )
+    bal_acc_lo, bal_acc_med, bal_acc_hi = bootstrap_ci(
+        y_true, y_pred, balanced_accuracy_score, n_boot=bootstrap_n, seed=seed
+    )
+    classes = sorted(set(y_true.tolist()) | set(y_pred.tolist()))
+    return {
+        "macro_f1": {
+            "point_estimate": float(
+                f1_score(y_true, y_pred, average="macro", zero_division=0)
+            ),
+            "ci_lo": macro_f1_lo,
+            "ci_median": macro_f1_med,
+            "ci_hi": macro_f1_hi,
+        },
+        "balanced_accuracy": {
+            "point_estimate": float(balanced_accuracy_score(y_true, y_pred)),
+            "ci_lo": bal_acc_lo,
+            "ci_median": bal_acc_med,
+            "ci_hi": bal_acc_hi,
+        },
+        "per_class_f1": {
+            str(c): float(s)
+            for c, s in zip(
+                classes,
+                f1_score(
+                    y_true, y_pred, average=None, zero_division=0, labels=classes
+                ),
+            )
+        },
+        "confusion_matrix": confusion_matrix(y_true, y_pred).tolist(),
+        "n_test": int(len(y_true)),
+    }
+
+
+def per_receptor_metrics(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    receptor_ids: np.ndarray,
+    *,
+    min_samples: int = 5,
+) -> pd.DataFrame:
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+    receptor_ids = np.asarray(receptor_ids)
+    rows = []
+    for r in pd.unique(receptor_ids):
+        mask = receptor_ids == r
+        if int(mask.sum()) < min_samples:
+            continue
+        rows.append({
+            "receptor": r,
+            "n": int(mask.sum()),
+            "macro_f1": float(
+                f1_score(y_true[mask], y_pred[mask], average="macro", zero_division=0)
+            ),
+            "balanced_accuracy": float(
+                balanced_accuracy_score(y_true[mask], y_pred[mask])
+            ),
+        })
+    return pd.DataFrame(rows)
+
+
 if __name__ == "__main__":
     import yaml
 
