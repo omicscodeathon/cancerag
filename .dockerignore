@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Data directories we don't need
+data/raw/
+data/interim/docking_results/
+data/pdb/
+data/external/
+
+# Exclude receptor PDB files that aren't in receptors_selected
+data/processed/receptors/*.pdb
+
+# Test files
+test_*.py
+*_test.py
+tests/
+
+# Documentation (except key docs)
+*.md
+!README.md
+!inference_app/DOCKING_FIX.md
+
+# Git
+.git/
+.gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Large model files we don't need (keep only the 4 main ones)
+results/models/advanced/
+results/models/advanced_improved/
+results/models/improved/
+results/models/extra_trees.pkl
+results/models/gradient_boosting.pkl
+results/models/random_forest_deep.pkl
+results/models/stacking_ensemble.pkl
+results/models/voting_ensemble.pkl
+
+# Notebooks and scripts
+notebooks/
+scripts/
