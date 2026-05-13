@@ -479,5 +479,214 @@ def main():
     generator.generate_report()
 
 
+# =====================================================================
+# Stage 10 / 11 — model card writer + SHAP-stability / permutation-importance
+# helpers. Living here keeps "things that turn the trained model into
+# reviewer-facing artifacts" in one canonical module.
+# =====================================================================
+
+
+import json as _json  # noqa: E402
+from collections.abc import Callable  # noqa: E402
+from pathlib import Path as _Path  # noqa: E402
+from typing import Any  # noqa: E402
+
+
+# ----------------------------------------------------------------- model card
+
+
+_MODEL_CARD_TEMPLATE = """# Model Card: {model_name}
+
+## Provenance
+- Repo commit: `{git_sha}`
+- Trained at (UTC): `{trained_at_utc}`
+- Library versions:
+{lib_versions}
+
+## Training Data
+- Dataset SHA-256: `{dataset_sha256}`
+- Train rows: {n_train}
+- Held-out test rows: {n_test}
+- Split strategy: `{split_strategy}`
+
+## Hyperparameters
+```json
+{hyperparameters}
+```
+
+## Performance
+- Validation macro-F1: {val_macro_f1}
+- Test macro-F1: {test_macro_f1}
+- Test balanced accuracy: {test_balanced_acc}
+
+## Intended Use
+Retrospective in-silico hypothesis generation for biased-agonist discovery
+at GPCRs. NOT validated for clinical or in-vivo use. Predictions outside
+the applicability domain (Tanimoto < 0.4 to nearest training neighbour)
+must not be acted upon.
+
+## Limitations
+{limitations}
+"""
+
+
+def render_model_card(
+    *,
+    model_name: str,
+    git_sha: str,
+    trained_at_utc: str,
+    lib_versions: dict[str, str],
+    dataset_sha256: str,
+    n_train: int,
+    n_test: int,
+    split_strategy: str,
+    hyperparameters: dict[str, Any],
+    val_macro_f1: str,
+    test_macro_f1: str,
+    test_balanced_acc: str,
+    limitations: list[str],
+) -> str:
+    lib_lines = "\n".join(f"  - {k}: {v}" for k, v in sorted(lib_versions.items()))
+    lim_lines = "\n".join(f"- {x}" for x in limitations)
+    return _MODEL_CARD_TEMPLATE.format(
+        model_name=model_name,
+        git_sha=git_sha,
+        trained_at_utc=trained_at_utc,
+        lib_versions=lib_lines,
+        dataset_sha256=dataset_sha256,
+        n_train=n_train,
+        n_test=n_test,
+        split_strategy=split_strategy,
+        hyperparameters=_json.dumps(hyperparameters, indent=2, sort_keys=True),
+        val_macro_f1=val_macro_f1,
+        test_macro_f1=test_macro_f1,
+        test_balanced_acc=test_balanced_acc,
+        limitations=lim_lines,
+    )
+
+
+def write_model_card(path: _Path | str, **kwargs) -> _Path:
+    path = _Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_model_card(**kwargs))
+    return path
+
+
+# --------------------------------------------------------- interpretability
+
+
+def shap_stability(
+    pipeline_factory: Callable[[], object],
+    X: pd.DataFrame,
+    y: np.ndarray,
+    splits: list[tuple[np.ndarray, np.ndarray]],
+    *,
+    top_k: int = 20,
+) -> pd.DataFrame:
+    """For each ``(train_idx, test_idx)`` split, refit the pipeline, compute
+    SHAP on the test fold, and record this fold's top-k features. Returns a
+    long DataFrame ``(fold, feature)`` so callers can compute per-feature
+    selection frequency via ``.groupby('feature').size() / n_folds``.
+    """
+    import shap  # local import — keeps the rest of the module usable without it
+
+    rows: list[dict] = []
+    for fold_id, (tr, te) in enumerate(splits):
+        pipe = pipeline_factory()
+        pipe.fit(X.iloc[tr], np.asarray(y)[tr])
+        steps = getattr(pipe, "named_steps", {})
+        if "model" in steps:
+            model = steps["model"]
+            transform = pipe[:-1]
+        else:
+            model = pipe
+            transform = None
+        X_te_transformed = transform.transform(X.iloc[te]) if transform else X.iloc[te]
+        explainer = shap.TreeExplainer(model)
+        sv = explainer.shap_values(X_te_transformed)
+        if isinstance(sv, list):
+            mean_abs = np.mean([np.abs(s).mean(axis=0) for s in sv], axis=0)
+        else:
+            mean_abs = np.abs(sv).mean(axis=0)
+        try:
+            cols = list(transform.get_feature_names_out())
+        except Exception:
+            cols = (
+                list(X.columns)
+                if not isinstance(X_te_transformed, pd.DataFrame)
+                else list(X_te_transformed.columns)
+            )
+        top = pd.Series(mean_abs, index=cols).nlargest(top_k).index.tolist()
+        for f in top:
+            rows.append({"fold": fold_id, "feature": f})
+    return pd.DataFrame(rows)
+
+
+def selection_frequency(stability_long: pd.DataFrame, n_folds: int) -> pd.Series:
+    if stability_long.empty:
+        return pd.Series(dtype=float)
+    counts = stability_long.groupby("feature").size()
+    return (counts / n_folds).sort_values(ascending=False)
+
+
+def permutation_importance_df(
+    model,
+    X: pd.DataFrame,
+    y: np.ndarray,
+    *,
+    n_repeats: int = 30,
+    seed: int = 42,
+) -> pd.DataFrame:
+    from sklearn.inspection import permutation_importance  # local import
+
+    r = permutation_importance(
+        model, X, y, n_repeats=n_repeats, random_state=seed, n_jobs=-1
+    )
+    return (
+        pd.DataFrame(
+            {
+                "feature": list(X.columns),
+                "perm_importance_mean": r.importances_mean,
+                "perm_importance_std": r.importances_std,
+            }
+        )
+        .sort_values("perm_importance_mean", ascending=False)
+        .reset_index(drop=True)
+    )
+
+
+def cross_validate_top_features(
+    shap_freq: pd.Series,
+    perm_importance: pd.DataFrame,
+    *,
+    top_k: int = 20,
+    min_freq: float = 0.8,
+) -> list[str]:
+    """Return features in BOTH the stable SHAP set AND the top-k permutation
+    set. Only these are reported in the manuscript."""
+    stable_shap = set(shap_freq[shap_freq >= min_freq].index)
+    top_perm = set(perm_importance.head(top_k)["feature"])
+    return sorted(stable_shap & top_perm)
+
+
+def persist_shap_values(
+    shap_values, X_eval: pd.DataFrame, y_true: np.ndarray, path: _Path | str
+) -> _Path:
+    path = _Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    arrs = {
+        "X_eval": X_eval.to_numpy(),
+        "y_true": np.asarray(y_true),
+        "feature_names": np.asarray(list(X_eval.columns), dtype=object),
+    }
+    if isinstance(shap_values, list):
+        for i, s in enumerate(shap_values):
+            arrs[f"shap_class_{i}"] = np.asarray(s)
+    else:
+        arrs["shap"] = np.asarray(shap_values)
+    np.savez(path, **arrs)
+    return path
+
+
 if __name__ == "__main__":
     main()
