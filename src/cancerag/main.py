@@ -265,9 +265,17 @@ def run_pipeline(config_path: str, force_rerun: bool = False):
             pipeline_status.mark_in_progress(stage_name)
 
             try:
-                chembl_retriever = ChEMBLRetriever(
+                # Stage 02 wiring: ChEMBLRetriever requires a ReceptorRegistry
+                # so that target lookups are deterministic across ChEMBL
+                # releases. Strict mode is the default — unknown receptors
+                # raise rather than silently picking the first ChEMBL hit.
+                from cancerag.data_collection.registry import ReceptorRegistry
+
+                registry = ReceptorRegistry.load()
+                chembl_retriever = ChEMBLRetriever.from_config(
                     output_dir=chembl_raw_dir,
-                    network_config=network_config,
+                    config=config,
+                    registry=registry,
                 )
                 chembl_retriever.run(unique_receptors.tolist())
                 print(f"   - ChEMBL data saved to {chembl_raw_dir}")

@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from src.docking_extractor import DockingFeatureExtractor
 from src.inference_pipeline import InferencePipeline
 from src.molecular_visualizer import MolecularVisualizer
-from src.predictor import load_predictor
+from src.predictor import load_predictor, ModernBiasPredictor
 from src.receptor_manager import ReceptorManager
 from src.result_visualizer import ResultVisualizer
 
@@ -49,7 +49,8 @@ except ImportError:
     )
 
 # Global instances
-_predictor = None
+_predictor = None              # legacy BiasPredictor (kept for fallback)
+_modern_predictor = None       # new ModernBiasPredictor (Phase 5)
 _pipeline = None
 _receptor_manager = None
 _visualizer = None
@@ -61,6 +62,7 @@ def initialize_app():
     """Initialize all components."""
     global \
         _predictor, \
+        _modern_predictor, \
         _pipeline, \
         _receptor_manager, \
         _visualizer, \
@@ -71,9 +73,34 @@ def initialize_app():
         base_path = Path(__file__).parent.parent
 
         logger.info("Initializing app components...")
-        _predictor = load_predictor(model_name="random_forest")
-        _pipeline = InferencePipeline(
-            _predictor, base_path=str(base_path), enable_docking=False
+        # Phase 5: prefer ModernBiasPredictor (sklearn-Pipeline artifacts)
+        try:
+            _modern_predictor = ModernBiasPredictor(repo_root=base_path)
+            logger.info(
+                "ModernBiasPredictor loaded: model=%s sha256=%s",
+                _modern_predictor.model_name,
+                (_modern_predictor.model_sha256 or "")[:8],
+            )
+        except Exception as exc:
+            logger.warning(
+                "ModernBiasPredictor unavailable (%s); falling back to legacy",
+                exc,
+            )
+            _modern_predictor = None
+
+        # Legacy predictor kept as a fallback when modern artifacts missing.
+        try:
+            _predictor = load_predictor(model_name="random_forest")
+        except Exception as exc:
+            logger.warning("Legacy predictor unavailable: %s", exc)
+            _predictor = None
+
+        _pipeline = (
+            InferencePipeline(
+                _predictor, base_path=str(base_path), enable_docking=False
+            )
+            if _predictor is not None
+            else None
         )
         _receptor_manager = ReceptorManager(base_path=str(base_path))
         _visualizer = MolecularVisualizer()
@@ -197,19 +224,21 @@ def run_prediction(
     smiles: str, receptor_name: Optional[str], run_docking: bool, progress=gr.Progress()
 ) -> Tuple:
     """Run complete prediction pipeline with progress tracking."""
-    
-    # Default empty returns (11 outputs)
+
+    # Default empty returns (12 outputs — added AD banner + SHAP table)
     empty_return = (
         "",  # prediction_output
         {},  # probabilities_output
         "",  # drug_likeness_md
-        "",  # interpretation_md  
+        "",  # interpretation_md
         "",  # docking_md
         None,  # radar_chart
         gr.update(visible=False),  # results_section
         gr.update(visible=False),  # loading_section
         None,  # descriptors_df
         "",  # binding_interpretation
+        "",  # ad_banner_md
+        None,  # shap_df
     )
     
     if not smiles or not smiles.strip() or not receptor_name:
@@ -229,7 +258,7 @@ def run_prediction(
         if not is_valid:
             return (
                 f"❌ **Invalid SMILES:** {error_msg}",
-                {}, "", "", "", None, gr.update(visible=True), gr.update(visible=False), None, ""
+                {}, "", "", "", None, gr.update(visible=True), gr.update(visible=False), None, "", "", None
             )
 
         progress(0.15, desc="⚙️ Processing molecule...")
@@ -237,7 +266,7 @@ def run_prediction(
         if mol is None:
             return (
                 "❌ **Error:** Failed to process molecule",
-                {}, "", "", "", None, gr.update(visible=True), gr.update(visible=False), None, ""
+                {}, "", "", "", None, gr.update(visible=True), gr.update(visible=False), None, "", "", None
             )
 
         # Drug-likeness assessment
@@ -326,7 +355,47 @@ def run_prediction(
                 features_df = pd.concat([features_df, docking_features_df], axis=1)
 
         progress(0.80, desc="🤖 Running prediction...")
-        predicted_class, probabilities = _predictor.predict(features_df)
+        ad_banner_md = ""
+        shap_df = None
+        # Phase 5: prefer ModernBiasPredictor when available — uses the
+        # sklearn-Pipeline artifacts and returns AD + SHAP top-5.
+        receptor_uniprot = receptor.get("uniprot") or receptor.get("uniprot_id")
+        if _modern_predictor is not None and receptor_uniprot:
+            modern_result = _modern_predictor.predict(
+                smiles, str(receptor_uniprot), log_audit=True
+            )
+            predicted_class = modern_result["predicted_class"]
+            probabilities = modern_result["probabilities"]
+            ad = modern_result["applicability"]
+            conf_lbl = modern_result["confidence"]
+            top_shap = modern_result["top_shap"]
+            if not ad.get("in_domain", True):
+                ad_banner_md = (
+                    f"### ⚠️ Out-of-Domain Warning\n\n"
+                    f"Nearest-neighbor Tanimoto = "
+                    f"**{ad['nearest_neighbor_tanimoto']:.2f}** "
+                    f"(threshold {ad['threshold']:.2f}). "
+                    f"This molecule is structurally far from the training set; "
+                    f"treat the prediction with extra caution."
+                )
+            else:
+                ad_banner_md = (
+                    f"### ✅ In Applicability Domain\n\n"
+                    f"Nearest-neighbor Tanimoto = "
+                    f"**{ad['nearest_neighbor_tanimoto']:.2f}** "
+                    f"(≥ {ad['threshold']:.2f}). Confidence: **{conf_lbl}**."
+                )
+            if top_shap:
+                shap_df = pd.DataFrame(
+                    [{"Feature": n, "SHAP value": f"{v:+.4f}"} for n, v in top_shap]
+                )
+        elif _predictor is not None:
+            predicted_class, probabilities = _predictor.predict(features_df)
+        else:
+            return (
+                "❌ **Error:** No predictor available",
+                {}, "", "", "", None, gr.update(visible=True), gr.update(visible=False), None, "", "", None
+            )
 
         progress(0.90, desc="🎨 Generating analysis...")
 
@@ -433,13 +502,15 @@ Predicted signaling bias for this ligand against **{receptor_display_name}**"""
             gr.update(visible=False),  # Hide loading
             descriptors_df,
             binding_interpretation,
+            ad_banner_md,
+            shap_df,
         )
 
     except Exception as e:
         logger.error(f"Prediction error: {e}", exc_info=True)
         return (
             f"❌ **Error:** {str(e)}",
-            {}, "", "", "", None, gr.update(visible=True), gr.update(visible=False), None, ""
+            {}, "", "", "", None, gr.update(visible=True), gr.update(visible=False), None, "", "", None
         )
 
 
@@ -572,12 +643,24 @@ with gr.Blocks(
                     # Prediction
                     with gr.Column(scale=1):
                         prediction_output = gr.Markdown(value="")
-                        
+
                     # Probabilities
                     with gr.Column(scale=1):
                         probabilities_output = gr.Label(
-                            label="Class Probabilities",
+                            label="Class Probabilities (calibrated)",
                             num_top_classes=5,
+                        )
+
+                # Applicability-Domain banner (Phase 5)
+                ad_banner_md = gr.Markdown(value="")
+
+                # Top-5 SHAP feature contributions (Phase 5)
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        gr.Markdown("### 🔍 Top-5 Feature Contributions (SHAP)")
+                        shap_output = gr.DataFrame(
+                            headers=["Feature", "SHAP value"],
+                            interactive=False,
                         )
                 
                 with gr.Row():
@@ -659,6 +742,8 @@ with gr.Blocks(
                     loading_section,
                     descriptors_output,
                     binding_interpretation_state,
+                    ad_banner_md,
+                    shap_output,
                 ],
             )
 
