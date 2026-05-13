@@ -25,14 +25,27 @@ env/
 # Logs
 *.log
 
-# Data directories we don't need
+# Data directories we don't need at build time
 data/raw/
 data/interim/docking_results/
 data/pdb/
 data/external/
 
-# Exclude receptor PDB files that aren't in receptors_selected
-data/processed/receptors/*.pdb
+# Exclude heavy intermediate ML outputs from the build context. Only the
+# deployable joblibs (selection_decision.json + *_final*.joblib +
+# label_encoder.joblib + advanced/) are needed by ModernBiasPredictor.
+data/processed/ml_models/cv_results/
+data/processed/ml_models/baselines/
+data/processed/ml_models/interpretability/
+data/processed/ml_models/selector_ablation/
+data/processed/ml_models/mlruns/
+
+# Stage-04/05 work directories — only their distilled artefacts
+# (data/processed/receptors_pdbqt/ + binding_sites.json) are needed.
+data/processed/.docking_work/
+data/processed/.docking_work_smoke/
+data/processed/.docking_work_smoke_*/
+data/processed/.redock_work/
 
 # Test files
 test_*.py

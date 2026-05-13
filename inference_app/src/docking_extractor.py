@@ -44,9 +44,18 @@ class DockingFeatureExtractor:
 
         # Load binding sites
         self.binding_sites = self._load_binding_sites()
-        self.receptor_names = (
-            list(self.binding_sites.keys()) if self.binding_sites else []
-        )
+        # `self.binding_sites` indexes each site by BOTH uniprot AND biasdb_name
+        # so `receptor_name in self.binding_sites` works for either. For
+        # iteration we deduplicate by the UniProt accession (canonical key).
+        seen_uniprot = set()
+        self.receptor_names = []
+        for key, site in self.binding_sites.items():
+            uni = site.get("uniprot")
+            if uni and uni in seen_uniprot:
+                continue
+            if uni:
+                seen_uniprot.add(uni)
+            self.receptor_names.append(key)
 
         # Check if Vina is available
         self._check_vina_availability()
@@ -84,7 +93,15 @@ class DockingFeatureExtractor:
             logger.warning(f"Could not verify Vina installation: {e}")
 
     def _load_binding_sites(self) -> Dict:
-        """Load binding sites configuration."""
+        """Load binding sites configuration.
+
+        Handles the post-rebuild schema (top-level dict with a
+        ``binding_sites`` list of ``{uniprot, biasdb_name, pdb_id, center_*,
+        size_*, method, confidence, ...}`` records) AND the legacy schema
+        (top-level dict keyed by receptor name). Returns a flat dict where
+        each site is reachable by **both** its biasdb_name and uniprot,
+        so downstream code can index by either string without caring which.
+        """
         if not self.binding_sites_path.exists():
             logger.warning(
                 f"Binding sites file not found: {self.binding_sites_path}. "
@@ -94,12 +111,47 @@ class DockingFeatureExtractor:
 
         try:
             with open(self.binding_sites_path, "r") as f:
-                binding_sites = json.load(f)
-            logger.info(f"Loaded binding sites for {len(binding_sites)} receptors")
-            return binding_sites
+                payload = json.load(f)
         except Exception as e:
             logger.error(f"Failed to load binding sites: {e}")
             return {}
+
+        # Normalise to a list-of-sites
+        if isinstance(payload, list):
+            sites_list = payload
+        elif isinstance(payload, dict) and "binding_sites" in payload:
+            sites_list = payload["binding_sites"]
+        elif isinstance(payload, dict):
+            # Legacy: dict keyed by receptor name
+            sites_list = []
+            for name, site in payload.items():
+                if isinstance(site, dict):
+                    site = {**site, "biasdb_name": name}
+                    if "uniprot" not in site:
+                        site["uniprot"] = name
+                    sites_list.append(site)
+        else:
+            return {}
+
+        # Normalise per-site keys: ensure each site has center_x/y/z/size_x/y/z
+        # (some legacy sites used `source_pdb` for `pdb_id`).
+        flat: Dict[str, Dict] = {}
+        for site in sites_list:
+            if not isinstance(site, dict):
+                continue
+            if "pdb_id" not in site and "source_pdb" in site:
+                site["pdb_id"] = site["source_pdb"]
+            uniprot = site.get("uniprot")
+            biasdb_name = site.get("biasdb_name")
+            if biasdb_name:
+                flat[biasdb_name] = site
+            if uniprot:
+                flat[uniprot] = site
+        logger.info(
+            "Loaded binding sites for %d receptors (%d index keys)",
+            len(sites_list), len(flat),
+        )
+        return flat
 
     def _prepare_ligand_3d(self, mol: Chem.Mol) -> Optional[str]:
         """
@@ -182,21 +234,42 @@ class DockingFeatureExtractor:
             return None
 
         binding_site = self.binding_sites[receptor_name]
-        pdb_id = binding_site.get("source_pdb")
-        if not pdb_id:
-            return None
+        uniprot = binding_site.get("uniprot") or receptor_name
+        pdb_id = binding_site.get("pdb_id") or binding_site.get("source_pdb")
 
-        # First, check the pre-converted receptors directory (used in Docker)
-        pre_converted_path = self.base_path / "data" / "processed" / "receptors_prepared" / f"{pdb_id}.pdbqt"
-        if pre_converted_path.exists() and pre_converted_path.stat().st_size > 100:
-            logger.info(f"Using pre-converted receptor: {pre_converted_path}")
-            return str(pre_converted_path)
+        # Primary: consolidated receptors_pdbqt/ keyed by UniProt accession
+        # (the canonical post-rebuild deployment surface).
+        primary = (
+            self.base_path / "data" / "processed" / "receptors_pdbqt"
+            / f"{uniprot}.pdbqt"
+        )
+        if primary.exists() and primary.stat().st_size > 100:
+            logger.info(f"Using receptors_pdbqt/ artefact: {primary}")
+            return str(primary)
 
-        # Fallback: check interim directory (for backward compatibility)
+        # Source-of-truth fallback: Stage-04 redock_work directory.
+        redock = (
+            self.base_path / "data" / "processed" / ".redock_work"
+            / uniprot / "receptor.pdbqt"
+        )
+        if redock.exists() and redock.stat().st_size > 100:
+            logger.info(f"Using redock_work PDBQT: {redock}")
+            return str(redock)
+
+        # Legacy fallbacks for backward compatibility
+        if pdb_id:
+            legacy_prepared = (
+                self.base_path / "data" / "processed" / "receptors_prepared"
+                / f"{pdb_id}.pdbqt"
+            )
+            if legacy_prepared.exists() and legacy_prepared.stat().st_size > 100:
+                logger.info(f"Using legacy pre-converted receptor: {legacy_prepared}")
+                return str(legacy_prepared)
+
         prepared_dir = self.base_path / "data" / "interim" / "docking_results" / "receptors"
         prepared_path = prepared_dir / f"{receptor_name}.pdbqt"
         if prepared_path.exists() and prepared_path.stat().st_size > 100:
-            logger.info(f"Using cached receptor: {prepared_path}")
+            logger.info(f"Using interim cached receptor: {prepared_path}")
             return str(prepared_path)
 
         # If not pre-converted, prepare it now
