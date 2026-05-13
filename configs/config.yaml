@@ -27,10 +27,19 @@ preprocessing:
   rotatable_bonds_max: 10
 
 docking:
-  # Vina parameters - optimized for speed
-  exhaustiveness: 4 # Reduced from 8 for faster execution
-  num_modes: 3 # Reduced from 9 for faster execution
-  num_cpu: 4 # Reduced CPU usage
+  # Vina parameters — Stage 05 fix.
+  # Defaults raised back to publication-grade settings:
+  #   exhaustiveness >= 16 is the literature recommendation for pose RMSD
+  #   reliability; the previous value of 4 was set "for faster execution"
+  #   and produced unreliable poses (Reviewer 1 point 4).
+  vina_version: "1.2.5"
+  exhaustiveness: 16
+  num_modes: 9
+  energy_range: 4
+  num_cpu: 4
+  per_job_timeout_seconds: 600
+  ph_for_protonation: 7.4
+  redock_rmsd_threshold_angstrom: 2.5
 
   # Binding site definition (can be overridden per receptor)
   default_binding_site:
@@ -46,8 +55,21 @@ network:
   session_retries: 5
 
 ml_model:
-  test_size: 0.05
+  # Stage 08 fix: raised from 0.05 (which produced a 26-row test set on a
+  # 5-class problem with 15:1 imbalance — Reviewer 2 explicitly demanded
+  # >=0.20 or nested CV).
+  test_size: 0.20
   random_state: 42
   # Parameters for RandomForest or GradientBoosting
   n_estimators: 100
   max_depth: 10
+  # Split strategy: "scaffold" (Murcko) is primary; "receptor_grouped" is the
+  # second regime reported alongside.
+  split_strategy: "scaffold"
+  also_report_split: "receptor_grouped"
+  # Reproducibility under small-n: report mean +/- std across multiple seeds.
+  random_seeds: [42, 7, 1234, 99, 2024]
+  outer_cv_folds: 5
+  inner_cv_folds: 5
+  bootstrap_ci_n: 1000
+  applicability_domain_tanimoto: 0.4
