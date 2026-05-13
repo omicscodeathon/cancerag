@@ -1,6 +1,20 @@
+"""
+AutoDock Vina runner.
+
+Owns the parallel docking executor (legacy) and the per-job metadata
+sidecar writer (Stage 05) that records which Vina version, exhaustiveness,
+ligand protomer, and box geometry produced each ``.pdbqt`` artifact.
+"""
+
+from __future__ import annotations
+
+import json
 import os
 import subprocess
 from concurrent.futures import ProcessPoolExecutor
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
 from tqdm import tqdm
 
@@ -264,3 +278,54 @@ def create_ligand_receptor_mapping(ligands_df):
             mapping[ligand_name] = normalized_receptor
 
     return mapping
+
+
+# --------------------------------------------------- per-job metadata sidecar
+
+
+def write_dock_meta(
+    artifact_path: Path | str,
+    *,
+    vina_version: str,
+    exhaustiveness: int,
+    num_modes: int,
+    ligand_inchikey: str,
+    receptor_pdb_id: str | None,
+    receptor_uniprot: str | None,
+    box_center: tuple[float, float, float],
+    box_size: tuple[float, float, float],
+    wall_seconds: float,
+    ph: float = 7.4,
+    vina_seed: int = 42,
+    extra: dict[str, Any] | None = None,
+) -> Path:
+    """Write ``<artifact>.dock.meta.json`` next to a docking output."""
+    artifact_path = Path(artifact_path)
+    meta = {
+        "artifact_path": str(artifact_path),
+        "vina_version": vina_version,
+        "exhaustiveness": exhaustiveness,
+        "num_modes": num_modes,
+        "ligand_inchikey": ligand_inchikey,
+        "receptor_pdb_id": receptor_pdb_id,
+        "receptor_uniprot": receptor_uniprot,
+        "box_center": list(box_center),
+        "box_size": list(box_size),
+        "wall_seconds": float(wall_seconds),
+        "ph": float(ph),
+        "vina_seed": int(vina_seed),
+        "docked_at_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    if extra:
+        meta.update(extra)
+    meta_path = artifact_path.with_suffix(artifact_path.suffix + ".dock.meta.json")
+    meta_path.write_text(json.dumps(meta, indent=2, sort_keys=True))
+    return meta_path
+
+
+def read_dock_meta(artifact_path: Path | str) -> dict[str, Any]:
+    artifact_path = Path(artifact_path)
+    meta_path = artifact_path.with_suffix(artifact_path.suffix + ".dock.meta.json")
+    if not meta_path.exists():
+        raise FileNotFoundError(f"Docking meta sidecar not found at {meta_path}")
+    return json.loads(meta_path.read_text())
