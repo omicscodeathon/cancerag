@@ -1,68 +1,138 @@
-"""
-Unit tests for BiasDB retriever module.
-"""
+"""Tests for cancerag.data_collection.biasdb_retriever."""
 
+from __future__ import annotations
+
+import json
+from pathlib import Path
 from unittest.mock import patch
 
-import pandas as pd
 import pytest
+import requests
 
 from cancerag.data_collection import biasdb_retriever
+from cancerag.data_collection.provenance import sha256_of
 
 
 @pytest.mark.unit
 class TestBiasDBRetriever:
-    """Test suite for BiasDB retriever."""
+    def test_idempotent_when_csv_exists(self, tmp_path: Path):
+        out = tmp_path / "biasdb.csv"
+        out.write_text("ligand_name,smiles\nFoo,CCO\n")
+        df = biasdb_retriever.download_biasdb_data(str(out))
+        assert len(df) == 1
+        assert df.iloc[0]["ligand_name"] == "Foo"
 
-    def test_download_biasdb_data_success(self, tmp_path):
-        """Test successful BiasDB data download."""
-        output_path = tmp_path / "biasdb_data.csv"
+    def test_network_failure_raises_typed_error(self, tmp_path: Path):
+        out = tmp_path / "biasdb.csv"
 
-        # Mock data that would come from BiasDB
-        mock_data = {
-            "receptor_subtype": ["5HT2C receptor", "D2 receptor"],
-            "ligand_name": ["Lorcaserin", "Aripiprazole"],
-            "smiles": [
-                "Clc1ccc2[nH]cc(c2c1)-c1ccc(Br)cc1",
-                "Clc1ccc2c(c1)nccc2-c1ncccn1",
-            ],
-            "bias_category": ["G protein-biased", "Balanced"],
-        }
-        mock_df = pd.DataFrame(mock_data)
+        class _ExplodingSession:
+            def get(self, *_a, **_k):
+                raise requests.exceptions.ConnectionError("boom")
 
-        with patch("pandas.read_csv", return_value=mock_df):
-            result = biasdb_retriever.download_biasdb_data(str(output_path))
+        with patch.object(
+            biasdb_retriever, "create_retry_session", return_value=_ExplodingSession()
+        ):
+            with pytest.raises(biasdb_retriever.BiasDBRetrievalError):
+                biasdb_retriever.download_biasdb_data(
+                    str(out), network_config={"max_retries": 0}
+                )
 
-        assert isinstance(result, pd.DataFrame)
-        assert len(result) == 2
-        assert "receptor_subtype" in result.columns
+    def test_invalid_json_raises_typed_error(self, tmp_path: Path):
+        out = tmp_path / "biasdb.csv"
 
-    def test_download_biasdb_data_empty(self, tmp_path):
-        """Test BiasDB retriever with empty data."""
-        output_path = tmp_path / "empty_biasdb.csv"
+        class _FakeResponse:
+            def raise_for_status(self):
+                pass
 
-        empty_df = pd.DataFrame()
+            def json(self):
+                raise ValueError("not json")
 
-        with patch("pandas.read_csv", return_value=empty_df):
-            result = biasdb_retriever.download_biasdb_data(str(output_path))
+        class _FakeSession:
+            def get(self, *_a, **_k):
+                return _FakeResponse()
 
-        assert isinstance(result, pd.DataFrame)
-        assert len(result) == 0
+        with patch.object(
+            biasdb_retriever, "create_retry_session", return_value=_FakeSession()
+        ):
+            with pytest.raises(biasdb_retriever.BiasDBRetrievalError):
+                biasdb_retriever.download_biasdb_data(
+                    str(out), network_config={"max_retries": 0}
+                )
 
-    def test_biasdb_data_columns(self, sample_biasdb_data):
-        """Test expected BiasDB data structure."""
-        df = pd.DataFrame(sample_biasdb_data)
+    def test_schema_drift_raises_typed_error(self, tmp_path: Path):
+        out = tmp_path / "biasdb.csv"
 
-        # Check essential columns exist
-        assert "receptor_subtype" in df.columns
-        assert "ligand_name" in df.columns
-        assert "smiles" in df.columns
-        assert "bias_category" in df.columns
+        class _FakeResponse:
+            def raise_for_status(self):
+                pass
 
-    def test_unique_receptors(self, sample_biasdb_data):
-        """Test unique receptor extraction."""
-        df = pd.DataFrame(sample_biasdb_data)
-        unique_receptors = df["receptor_subtype"].unique()
+            def json(self):
+                return [{"unexpected_column": "value"}]
 
-        assert len(unique_receptors) == 3
-        assert "5HT2C receptor" in unique_receptors
+        class _FakeSession:
+            def get(self, *_a, **_k):
+                return _FakeResponse()
+
+        with patch.object(
+            biasdb_retriever, "create_retry_session", return_value=_FakeSession()
+        ):
+            with pytest.raises(
+                biasdb_retriever.BiasDBRetrievalError, match="schema drift"
+            ):
+                biasdb_retriever.download_biasdb_data(
+                    str(out), network_config={"max_retries": 0}
+                )
+
+    def test_writes_provenance_sidecar(self, tmp_path: Path):
+        out = tmp_path / "biasdb.csv"
+
+        class _FakeResponse:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return [
+                    {
+                        "ligand_name": "Lorcaserin",
+                        "smiles": "CCO",
+                        "year": "2018",
+                    }
+                ]
+
+        class _FakeSession:
+            def get(self, *_a, **_k):
+                return _FakeResponse()
+
+        with patch.object(
+            biasdb_retriever, "create_retry_session", return_value=_FakeSession()
+        ):
+            df = biasdb_retriever.download_biasdb_data(
+                str(out), network_config={"max_retries": 0}
+            )
+        assert len(df) == 1
+        meta = json.loads((tmp_path / "biasdb.csv.meta.json").read_text())
+        assert meta["row_count"] == 1
+        assert meta["source_url"] == biasdb_retriever.BIASDB_URL
+        assert meta["sha256"] == sha256_of(out)
+
+    def test_logging_basicConfig_only_inside_main_guard(self):
+        """basicConfig must not run at import — only when invoked as
+        ``python -m cancerag.data_collection.biasdb_retriever``."""
+        import inspect
+        import re
+
+        src_lines = inspect.getsource(biasdb_retriever).splitlines()
+        main_guard_idx = next(
+            (
+                i for i, ln in enumerate(src_lines)
+                if 'if __name__ == "__main__"' in ln
+            ),
+            None,
+        )
+        assert main_guard_idx is not None, "module must declare __main__ guard"
+        call_re = re.compile(r"^\s*logging\.basicConfig\s*\(")
+        bc_indices = [i for i, ln in enumerate(src_lines) if call_re.match(ln)]
+        for i in bc_indices:
+            assert i > main_guard_idx, (
+                f"logging.basicConfig at line {i + 1} is outside __main__ guard"
+            )

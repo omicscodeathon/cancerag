@@ -1,10 +1,34 @@
+"""
+BiasDB retriever.
+
+Stage 01 fixes applied (see improvements/01_data_collection.md):
+- Validates the JSON payload via `parse_biasdb_payload` (Pydantic schema)
+  rather than mapping a positional column header list onto whatever JSON the
+  endpoint returns. Schema drift now raises loudly instead of misaligning
+  the label vector silently.
+- Raises `BiasDBRetrievalError` on failure instead of calling `sys.exit(1)`,
+  so the function is usable from notebooks, tests, and the inference app.
+- Writes a `<artifact>.meta.json` sidecar with source URL, fetch timestamp,
+  query params, SHA-256, and row count.
+- Removed the module-level `logging.basicConfig`.
+"""
+
+from __future__ import annotations
+
 import logging
 import os
-import sys
+from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import requests
 
+from cancerag.data_collection.provenance import write_meta
+from cancerag.data_collection.schemas import (
+    BIASDB_HEADER_ORDER,
+    SchemaDriftError,
+    parse_biasdb_payload,
+)
 from cancerag.utils.network import (
     NetworkRetrier,
     NetworkRetrySettings,
@@ -13,116 +37,100 @@ from cancerag.utils.network import (
 
 logger = logging.getLogger(__name__)
 
+BIASDB_URL = "https://biasdb.drug-design.de/data_0/query?user_query=default_query"
+
+
+class BiasDBRetrievalError(RuntimeError):
+    """Raised when the BiasDB retrieval fails or returns an invalid payload."""
+
 
 def download_biasdb_data(
-    output_path: str, network_config: dict | None = None
+    output_path: str,
+    network_config: dict | None = None,
+    *,
+    write_provenance: bool = True,
 ) -> pd.DataFrame:
-    """
-    Fetches the complete dataset from the BiasDB web server and saves it as a CSV.
-    This function is idempotent - it will skip download if the file already exists.
+    """Fetch the complete BiasDB dataset and save it as a CSV.
 
-    Args:
-        output_path (str): The file path to save the downloaded data.
-        network_config (dict | None): Optional network retry configuration.
+    Idempotent: returns the cached CSV if it already exists.
 
-    Returns:
-        pd.DataFrame: A pandas DataFrame containing the structured BiasDB data.
+    Raises:
+        BiasDBRetrievalError: when the network call fails after retries, or the
+            response is not valid JSON, or the schema does not match the
+            expected BiasDB layout.
     """
-    # Check if file already exists (idempotent behavior)
+    output_path = str(output_path)
     if os.path.exists(output_path):
         logger.info(
-            f"BiasDB data already exists at {output_path}. Loading existing data..."
+            "BiasDB data already exists at %s. Loading existing data...", output_path
         )
         try:
             df = pd.read_csv(output_path)
-            logger.info(
-                f"Successfully loaded {len(df)} records from existing BiasDB data."
-            )
+            logger.info("Loaded %d existing BiasDB records", len(df))
             return df
-        except Exception as e:
+        except Exception as exc:
             logger.warning(
-                f"Could not load existing BiasDB data: {e}. Re-downloading..."
+                "Could not load existing BiasDB data: %s. Re-downloading...", exc
             )
 
-    url = "https://biasdb.drug-design.de/data_0/query?user_query=default_query"
-    logger.info(f"Fetching data from BiasDB URL: {url}")
+    logger.info("Fetching data from BiasDB URL: %s", BIASDB_URL)
 
     retry_settings = NetworkRetrySettings.from_config(network_config)
     retrier = NetworkRetrier(retry_settings, logger=logger)
     session = create_retry_session(retry_settings, allowed_methods=["GET"])
 
-    def _fetch_biasdb() -> list[dict]:
-        response = session.get(url, timeout=60)
+    def _fetch() -> Any:
+        response = session.get(BIASDB_URL, timeout=60)
         response.raise_for_status()
         return response.json()
 
     try:
-        raw_data = retrier.run(
-            "BiasDB download",
-            _fetch_biasdb,
-            (requests.exceptions.RequestException,),
+        raw_payload = retrier.run(
+            "BiasDB download", _fetch, (requests.exceptions.RequestException,)
         )
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to fetch data from BiasDB after retries: {e}")
-        sys.exit(1)
-    except ValueError:
-        logger.error("Failed to decode JSON from BiasDB response.")
-        sys.exit(1)
+    except requests.exceptions.RequestException as exc:
+        raise BiasDBRetrievalError(
+            f"BiasDB download failed after retries: {exc}"
+        ) from exc
+    except ValueError as exc:
+        raise BiasDBRetrievalError("BiasDB response was not valid JSON") from exc
 
-    # Define the comprehensive column headers based on analysis of the data structure
-    headers = [
-        "ligand_name",
-        "smiles",
-        "smiles_duplicate",
-        "receptor_family",
-        "receptor",
-        "receptor_subtype",
-        "bias_category",
-        "bias_pathway",
-        "reference_ligand",
-        "assay_1",
-        "assay_2",
-        "publication_title",
-        "author",
-        "doi",
-        "pmid",
-        "year",
-        "molecular_weight",
-        "logp",
-        "hba",
-        "hbd",
-        "rings",
-        "tpsa",
-    ]
+    try:
+        rows = parse_biasdb_payload(raw_payload)
+    except SchemaDriftError as exc:
+        raise BiasDBRetrievalError(f"BiasDB schema drift: {exc}") from exc
 
-    # The data is a direct list in the JSON response
-    data_list = raw_data
+    if not rows:
+        logger.warning("BiasDB query returned no rows")
+        df = pd.DataFrame(columns=list(BIASDB_HEADER_ORDER))
+    else:
+        df = pd.DataFrame([r.model_dump() for r in rows])
 
-    if not data_list:
-        logger.warning("BiasDB query returned no data.")
-        return pd.DataFrame(columns=headers)
-
-    df = pd.DataFrame(data_list, columns=headers)
-
-    # Save the data to the specified CSV file
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     try:
         df.to_csv(output_path, index=False)
-        logger.info(f"Successfully saved BiasDB data to {output_path}")
-    except IOError as e:
-        logger.error(f"Failed to write BiasDB data to {output_path}: {e}")
-        sys.exit(1)
+        logger.info("Saved %d BiasDB records to %s", len(df), output_path)
+    except OSError as exc:
+        raise BiasDBRetrievalError(
+            f"Could not write BiasDB CSV to {output_path}: {exc}"
+        ) from exc
+
+    if write_provenance:
+        write_meta(
+            output_path,
+            source_url=BIASDB_URL,
+            source_version="biasdb-default-query",
+            query_params={"user_query": "default_query"},
+            row_count=len(df),
+        )
 
     return df
 
 
 if __name__ == "__main__":
-    # Example of how to run this module directly
-    import os
-
-    # Ensure the output directory exists
-    output_dir = "data/raw"
-    os.makedirs(output_dir, exist_ok=True)
-
-    # Define the output file and run the downloader
-    output_file = os.path.join(output_dir, "biasdb_data.csv")
-    download_biasdb_data(output_file)
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
+    output_dir = Path("data/raw")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    download_biasdb_data(str(output_dir / "biasdb_data.csv"))
