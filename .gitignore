@@ -159,3 +159,8 @@ data/processed/.docking_work_smoke_*/
 
 # Local plan files
 /.claude/plans/
+
+# Manuscript-builder scripts (manuscript artefacts go in supplementary)
+scripts/build_manuscript_docx.js
+scripts/build_manuscript_docx.py
+scripts/figures/
