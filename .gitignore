@@ -143,3 +143,19 @@ coverage.xml
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Manuscript artefacts (published in supplementary file)
+manuscript/
+
+# CatBoost build artefacts (CatBoost was dropped from the bake-off)
+catboost_info/
+
+# Heavy intermediate ML outputs
+data/processed/ml_models/
+data/processed/.docking_work/
+data/processed/.redock_work/
+data/processed/.docking_work_smoke/
+data/processed/.docking_work_smoke_*/
+
+# Local plan files
+/.claude/plans/
