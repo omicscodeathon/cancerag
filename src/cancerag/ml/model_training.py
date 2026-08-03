@@ -255,8 +255,16 @@ def _eval_pipeline_on_fold(
 
 
 def _build_pipeline_for(model_name: str, n_classes: int, seed: int,
-                        *, with_selector: bool = True) -> Pipeline:
-    """Build the per-fold preprocessing+selection+model pipeline."""
+                        *, with_selector: bool = True,
+                        family_col: str | None = None) -> Pipeline:
+    """Build the per-fold preprocessing+selection+model pipeline.
+
+    Imputation is global-median by default. Pass ``family_col`` (and supply that
+    column via ``get_X_y_groups(add_family_col=True)``) to switch to
+    per-receptor-family median imputation; given the dataset's whole-receptor,
+    indicator-flagged missingness this leaves results unchanged, so it is
+    available but off by default.
+    """
     factory = MODEL_FACTORIES[model_name]
     model = factory(n_classes=n_classes, random_state=seed)
     selector = (
@@ -264,7 +272,8 @@ def _build_pipeline_for(model_name: str, n_classes: int, seed: int,
         if with_selector else None
     )
     return build_full_pipeline(
-        model, impute=True, correlation_threshold=0.97, scale=True,
+        model, impute=True, family_col=family_col,
+        correlation_threshold=0.97, scale=True,
         selector=selector,
     )
 

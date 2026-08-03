@@ -35,8 +35,10 @@ class TestBaselines:
         assert set(preds.tolist()).issubset({0, 1})
 
     def test_smiles_only_rf_runs(self):
+        # smiles_only_rf_baseline reads the standardised-SMILES column by default
+        # (canonical_smiles_std), matching the production feature table.
         df = pd.DataFrame(
-            {"canonical_smiles": ["CCO", "c1ccccc1", "CCN", "c1ccncc1"]}
+            {"canonical_smiles_std": ["CCO", "c1ccccc1", "CCN", "c1ccncc1"]}
         )
         y = np.array([0, 1, 0, 1])
         pipe = smiles_only_rf_baseline(n_bits=128, n_estimators=10)
