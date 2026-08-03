@@ -42,6 +42,26 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 logger = logging.getLogger(__name__)
 
 
+# Per-receptor structure-preparation QC. These are computed once per receptor
+# (production_docking.py maps them onto rows via ``receptor_uniprot``), so they
+# take a single value for every ligand docked into that receptor — i.e. they are
+# receptor identity encoded as a number, not ligand x receptor signal. They are
+# excluded from X and used ONLY where they belong: as the per-row
+# ``sample_weight`` (dataset_assembly.py), which down-weights rows coming from
+# poorly-prepared structures.
+#
+# ``docking_confidence`` is a deterministic function of the other two
+# (production_docking.py::_confidence), so one-hot encoding it re-introduces the
+# same information a third time. The paired ``*_missing`` indicators are also
+# per-receptor constants — they say *which receptors* lacked a re-dock.
+RECEPTOR_QC_COLS = frozenset({
+    "gnina_cnn_score",
+    "redock_rmsd_angstrom",
+    "gnina_cnn_score_missing",
+    "redock_rmsd_angstrom_missing",
+    "docking_confidence",
+})
+
 # Columns that are bookkeeping / labels — never go into X.
 META_COLS = frozenset({
     "pair_key", "inchikey", "inchikey14", "receptor_uniprot",
@@ -50,7 +70,7 @@ META_COLS = frozenset({
     "reference_ligand", "assay_1", "assay_2", "pmid", "year", "doi",
     "source", "std_status", "label_status", "scaffold",
     "docking_success", "sample_weight",
-})
+}) | RECEPTOR_QC_COLS
 
 DATASET_PATH = Path("data/processed/ml_ready_dataset.parquet")
 HOLDOUT_DIR = Path("data/holdout")
@@ -119,9 +139,12 @@ def load_dataset(path: Path | str = DATASET_PATH) -> pd.DataFrame:
 def identify_columns(df: pd.DataFrame) -> dict:
     """Split the wide matrix into role-tagged column lists.
 
-    The categorical receptor-confidence flag (``docking_confidence``) is
-    one-hot encoded into the feature set; the original string column is
-    excluded from features.
+    Per-receptor structure-preparation QC (:data:`RECEPTOR_QC_COLS`) is held out
+    of the feature set entirely — including ``docking_confidence``, which was
+    previously one-hot encoded into X. Those columns are constant within a
+    receptor, so a learner can use them to recover receptor identity instead of
+    ligand x receptor chemistry. They survive as the ``sample_weight`` column,
+    which is where structure quality legitimately belongs.
     """
     cols = list(df.columns)
     feature_cols = [
@@ -129,7 +152,7 @@ def identify_columns(df: pd.DataFrame) -> dict:
         if c not in META_COLS and not c.endswith("_lig")
         and pd.api.types.is_numeric_dtype(df[c])
     ]
-    categorical_features = ["docking_confidence"]
+    categorical_features: list[str] = []
     return {
         "target_col": "bias_category",
         "weight_col": "sample_weight",

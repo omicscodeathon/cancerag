@@ -42,12 +42,19 @@ from sklearn.feature_selection import SelectKBest, VarianceThreshold, f_classif
 logger = logging.getLogger(__name__)
 
 
+# Pair-level structural columns protected from selector pruning. These all vary
+# with the (ligand, receptor) pair, so force-keeping them preserves the
+# structural contribution rather than a shortcut.
+#
+# ``redock_rmsd`` and ``gnina_cnn`` were previously force-kept here too. They are
+# per-receptor constants (see preprocessing.RECEPTOR_QC_COLS) and no longer enter
+# X at all, so protecting them would only shield a receptor-identity proxy from
+# the one mechanism that could have dropped it.
 FORCE_KEEP_PREFIXES: tuple[str, ...] = (
     "vina_affinity", "vina_pose_", "vina_n_distinct",
     "ifp_", "n_residues_contacted", "n_total_contacts",
     "Asphericity", "Eccentricity", "NPR", "PMI", "RadiusOfGyration",
     "SpherocityIndex", "InertialShapeFactor",
-    "redock_rmsd", "gnina_cnn",
 )
 
 
