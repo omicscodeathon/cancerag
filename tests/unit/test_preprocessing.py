@@ -147,6 +147,20 @@ class TestPerReceptorFamilyImputer:
         with pytest.raises(KeyError):
             PerReceptorFamilyImputer().fit(pd.DataFrame({"x": [1, 2]}))
 
+    def test_transform_without_family_falls_back_to_global(self):
+        """A consumer of a fitted model may predict without supplying the
+        family routing column; transform must then fill the learned global
+        median rather than raise (inference-safety path)."""
+        train = pd.DataFrame(
+            {"receptor_family": ["A", "A", "B", "B"], "feature": [1.0, 3.0, 10.0, 20.0]}
+        )
+        imp = PerReceptorFamilyImputer().fit(train)
+        # Predict-time frame: numeric-only, no family column, one missing cell.
+        test = pd.DataFrame({"feature": [np.nan]})
+        out = imp.transform(test)
+        assert "receptor_family" not in out.columns
+        assert out.loc[0, "feature"] == train["feature"].median()  # global = 6.5
+
     def test_pipeline_composition_no_leakage(self):
         """End-to-end smoke test: the imputer fits only on train rows and
         the entire pipeline stays Pipeline-able (this is the leakage fix
@@ -165,23 +179,20 @@ class TestPerReceptorFamilyImputer:
         df.loc[40:50, "f1"] = np.nan
         y = (df["receptor_family"] == "A").astype(int).values
 
+        # The imputer consumes and drops the 'receptor_family' routing column,
+        # so it can sit first in a vanilla sklearn Pipeline and the downstream
+        # numeric-only steps just work — no ColumnTransformer needed.
         pipe = Pipeline([
             ("impute", PerReceptorFamilyImputer()),
-            # Drop the family column before scaling; keep it simple by
-            # selecting numeric columns afterwards.
-            ("scale", StandardScaler(with_mean=False)),
+            ("scale", StandardScaler()),
             ("model", LogisticRegression(max_iter=500)),
         ])
-        # The StandardScaler step can't accept the 'receptor_family' string
-        # column; for this composition test, drop it explicitly first.
-        X = pipe.named_steps["impute"].fit_transform(df).drop(columns=["receptor_family"])
-        # Continue manually for the rest of the pipeline (sklearn can't
-        # natively skip non-numeric columns mid-pipeline without a
-        # ColumnTransformer; the goal here is just to prove the imputer is
-        # Pipeline-shaped).
-        Xs = StandardScaler().fit_transform(X)
-        m = LogisticRegression(max_iter=500).fit(Xs, y)
-        assert hasattr(m, "coef_")
+        pipe.fit(df, y)
+        preds = pipe.predict(df)
+        assert preds.shape == (n,)
+        # The model never sees the family column.
+        assert "receptor_family" not in pipe.named_steps["impute"].transform(df).columns
+        assert pipe.named_steps["model"].coef_.shape[1] == df.shape[1] - 1
 
 
 @pytest.mark.unit
@@ -201,7 +212,8 @@ class TestStackInsideCV:
         )
         df.loc[2, "z"] = np.nan  # one missing value to exercise imputation
         imp = PerReceptorFamilyImputer().fit(df)
-        imputed = imp.transform(df).drop(columns=["receptor_family"])
+        imputed = imp.transform(df)  # family column dropped inside transform
+        assert "receptor_family" not in imputed.columns
         cf = CorrelationFilter(threshold=0.95).fit(imputed)
         decorrelated = cf.transform(imputed)
         # x and y are perfectly correlated -> one dropped, two remain.

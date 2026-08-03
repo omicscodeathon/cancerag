@@ -55,6 +55,50 @@ META_COLS = frozenset({
 DATASET_PATH = Path("data/processed/ml_ready_dataset.parquet")
 HOLDOUT_DIR = Path("data/holdout")
 
+# UniProt -> GPCR ligand-type family (GPCRdb / IUPHAR class-A grouping).
+# Used by PerReceptorFamilyImputer so that the few missing per-receptor
+# structural-quality covariates are filled with a family-appropriate median
+# rather than a global median pooled across unrelated receptor families
+# (the imputation concern raised in review). Receptors absent from this map
+# fall back to the family label "other" (-> global median).
+RECEPTOR_FAMILY_MAP: dict[str, str] = {
+    # Aminergic (adrenergic / dopamine / serotonin / histamine / muscarinic)
+    "P07550": "aminergic", "P08588": "aminergic", "P35348": "aminergic",
+    "P08913": "aminergic", "P18825": "aminergic", "P14416": "aminergic",
+    "P21728": "aminergic", "P35462": "aminergic", "P21917": "aminergic",
+    "P08908": "aminergic", "P28222": "aminergic", "P41595": "aminergic",
+    "P28335": "aminergic", "P34969": "aminergic", "P25021": "aminergic",
+    "Q9Y5N1": "aminergic", "Q9H3N8": "aminergic", "P08172": "aminergic",
+    "P11229": "aminergic", "P20309": "aminergic",
+    # Opioid (incl. nociceptin/NOP)
+    "P35372": "opioid", "P41145": "opioid", "P41143": "opioid",
+    "P41146": "opioid",
+    # Chemokine / chemoattractant (CXCR, CCR, FPR)
+    "P25025": "chemokine", "P49682": "chemokine", "P61073": "chemokine",
+    "P41597": "chemokine", "P51681": "chemokine", "P21462": "chemokine",
+    # Cannabinoid
+    "P21554": "cannabinoid", "P34972": "cannabinoid",
+    # Adenosine (P1 purinergic)
+    "P30542": "adenosine", "P29275": "adenosine", "P0DMS8": "adenosine",
+    # Free-fatty-acid / hydroxycarboxylic-acid / metabolite GPCRs
+    "O14842": "fatty_acid", "O15552": "fatty_acid", "Q8TDS4": "fatty_acid",
+    "Q9NQS5": "fatty_acid", "Q9HC97": "fatty_acid",
+    # Lysophospholipid (EDG)
+    "Q92633": "lysophospholipid", "P21453": "lysophospholipid",
+    # Prostanoid / eicosanoid
+    "P43116": "prostanoid", "Q9Y5Y4": "prostanoid",
+    # Melanocortin
+    "P32245": "melanocortin", "P33032": "melanocortin",
+    "P41968": "melanocortin", "Q01726": "melanocortin",
+    # Peptide-binding class A (tachykinin, vasopressin, neurotensin,
+    # ghrelin, apelin, relaxin, protease-activated, glycoprotein-hormone)
+    "P30989": "peptide", "Q92847": "peptide", "P21452": "peptide",
+    "P30518": "peptide", "P55085": "peptide", "P35414": "peptide",
+    "Q9HBX9": "peptide", "P22888": "peptide",
+    # Calcium-sensing
+    "P41180": "calcium_sensing",
+}
+
 
 # ----------------------------------------------------------------- loading
 
@@ -164,10 +208,22 @@ class PerReceptorFamilyImputer(BaseEstimator, TransformerMixin):
             )
         numeric_cols = X.select_dtypes(include=[np.number]).columns.tolist()
         self.numeric_cols_ = numeric_cols
-        self.family_medians_ = (
-            X.groupby(self.family_col)[numeric_cols].median(numeric_only=True)
-        )
         self.global_medians_ = X[numeric_cols].median(numeric_only=True)
+        # Only columns that actually contain missing values need family-aware
+        # imputation. Computing per-family medians for every one of the ~2 850
+        # columns once per CV fold is wasteful and dominates training time;
+        # restricting to the (typically <5) columns with NaN makes the
+        # transformer effectively free without changing any imputed value.
+        self.cols_with_na_ = [c for c in numeric_cols if X[c].isna().any()]
+        if self.cols_with_na_:
+            self.family_medians_ = (
+                X.groupby(self.family_col)[self.cols_with_na_]
+                .median(numeric_only=True)
+            )
+        else:
+            self.family_medians_ = pd.DataFrame(
+                index=pd.Index([], name=self.family_col)
+            )
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -176,20 +232,37 @@ class PerReceptorFamilyImputer(BaseEstimator, TransformerMixin):
                 "PerReceptorFamilyImputer.transform requires a DataFrame"
             )
         out = X.copy()
-        for fam, group_idx in out.groupby(self.family_col).groups.items():
-            meds = (
-                self.family_medians_.loc[fam]
-                if fam in self.family_medians_.index
-                else self.global_medians_
-            )
-            out.loc[group_idx, self.numeric_cols_] = (
-                out.loc[group_idx, self.numeric_cols_].fillna(meds)
-            )
-        out[self.numeric_cols_] = out[self.numeric_cols_].fillna(self.global_medians_)
+        has_family = self.family_col in out.columns
+        # Family-aware fill for the columns that had NaN at fit time. Vectorised:
+        # map each NaN row's family to the family median for that column, with a
+        # global-median fallback for unseen families (and families that were
+        # themselves entirely missing for the column).
+        if has_family:
+            fams = out[self.family_col]
+            for col in self.cols_with_na_:
+                if col not in out.columns:
+                    continue
+                na_mask = out[col].isna()
+                if not na_mask.to_numpy().any():
+                    continue
+                fam_med = self.family_medians_[col]
+                fill = fams[na_mask].map(fam_med).fillna(self.global_medians_[col])
+                out.loc[na_mask, col] = fill
+        # Global-median backstop for any cell still missing (covers the
+        # no-family graceful path and any column not seen with NaN at fit time).
+        present = [c for c in self.numeric_cols_ if c in out.columns]
+        remaining = [c for c in present if out[c].isna().to_numpy().any()]
+        if remaining:
+            out[remaining] = out[remaining].fillna(self.global_medians_[remaining])
+        # The family column is a routing key only, never a model feature.
+        if has_family:
+            out = out.drop(columns=[self.family_col])
         return out
 
     def get_feature_names_out(self, input_features=None):
-        return np.asarray(input_features) if input_features is not None else None
+        if input_features is None:
+            return None
+        return np.asarray([c for c in input_features if c != self.family_col])
 
 
 # ----------------------------------------------- group-aware splits
@@ -369,6 +442,7 @@ def build_full_pipeline(
     model,
     *,
     impute: bool = True,
+    family_col: str | None = None,
     variance_threshold: float = 1e-4,
     correlation_threshold: float = 0.97,
     scale: bool = True,
@@ -385,10 +459,18 @@ def build_full_pipeline(
     The variance filter is a cheap O(p) pre-screen that halves the column
     count before the O(p²) correlation filter — necessary for tractability
     at our ~3000-column dataset.
+
+    When ``family_col`` is given, missing values are imputed with the
+    per-receptor-family median (global-median fallback) instead of a single
+    global median, and the family column is consumed by the imputer so it
+    never reaches the model.
     """
     steps: list[tuple[str, BaseEstimator]] = []
     if impute:
-        steps.append(("imputer", DataFrameImputer(strategy="median")))
+        if family_col is not None:
+            steps.append(("imputer", PerReceptorFamilyImputer(family_col=family_col)))
+        else:
+            steps.append(("imputer", DataFrameImputer(strategy="median")))
     if variance_threshold > 0:
         steps.append(("variance_filter",
                       DataFrameVarianceFilter(threshold=variance_threshold)))
@@ -404,9 +486,16 @@ def build_full_pipeline(
 
 
 def get_X_y_groups(
-    df: pd.DataFrame, *, label_encoder=None,
+    df: pd.DataFrame, *, label_encoder=None, add_family_col: bool = False,
 ) -> tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, dict]:
-    """Standard extraction: returns (X, y_encoded, sample_weight, scaffolds, cols)."""
+    """Standard extraction: returns (X, y_encoded, sample_weight, scaffolds, cols).
+
+    When ``add_family_col`` is True, a string ``receptor_family`` column
+    (derived from ``receptor_uniprot`` via :data:`RECEPTOR_FAMILY_MAP`) is
+    appended as the last column of ``X`` for use by
+    :class:`PerReceptorFamilyImputer`. The imputer consumes and drops it, so it
+    never reaches the model. Receptors missing from the map get ``"other"``.
+    """
     cols = identify_columns(df)
     X = df[cols["feature_cols"]].copy()
     if cols["categorical_features"]:
@@ -416,6 +505,14 @@ def get_X_y_groups(
         ).astype(np.float32)
         X = pd.concat([X.reset_index(drop=True), cat.reset_index(drop=True)],
                       axis=1)
+    if add_family_col:
+        fam = (
+            df["receptor_uniprot"].map(RECEPTOR_FAMILY_MAP).fillna("other")
+            if "receptor_uniprot" in df.columns
+            else pd.Series(["other"] * len(df))
+        )
+        X = X.reset_index(drop=True)
+        X["receptor_family"] = fam.reset_index(drop=True)
     y_str = df[cols["target_col"]].astype(str).values
     if label_encoder is None:
         label_encoder = LabelEncoder().fit(y_str)

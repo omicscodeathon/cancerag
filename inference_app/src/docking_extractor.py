@@ -33,8 +33,8 @@ class DockingFeatureExtractor:
             base_path: Base path to project root (defaults to parent of inference_app)
         """
         if base_path is None:
-            # Default to parent directory of inference_app
-            base_path = Path(__file__).parent.parent.parent.parent
+            # repo root = .../cancerag (this file is at cancerag/inference_app/src/)
+            base_path = Path(__file__).resolve().parent.parent.parent
 
         self.base_path = Path(base_path)
         self.binding_sites_path = (

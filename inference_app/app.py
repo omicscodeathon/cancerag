@@ -26,9 +26,8 @@ warnings.filterwarnings("ignore", message=".*does not have valid feature names.*
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.docking_extractor import DockingFeatureExtractor
-from src.inference_pipeline import InferencePipeline
 from src.molecular_visualizer import MolecularVisualizer
-from src.predictor import load_predictor, ModernBiasPredictor
+from src.predictor import ModernBiasPredictor
 from src.receptor_manager import ReceptorManager
 from src.result_visualizer import ResultVisualizer
 
@@ -49,9 +48,7 @@ except ImportError:
     )
 
 # Global instances
-_predictor = None              # legacy BiasPredictor (kept for fallback)
-_modern_predictor = None       # new ModernBiasPredictor (Phase 5)
-_pipeline = None
+_modern_predictor = None       # ModernBiasPredictor — the production predictor
 _receptor_manager = None
 _visualizer = None
 _result_visualizer = None
@@ -61,9 +58,7 @@ _docking_extractor = None
 def initialize_app():
     """Initialize all components."""
     global \
-        _predictor, \
         _modern_predictor, \
-        _pipeline, \
         _receptor_manager, \
         _visualizer, \
         _result_visualizer, \
@@ -73,35 +68,15 @@ def initialize_app():
         base_path = Path(__file__).parent.parent
 
         logger.info("Initializing app components...")
-        # Phase 5: prefer ModernBiasPredictor (sklearn-Pipeline artifacts)
-        try:
-            _modern_predictor = ModernBiasPredictor(repo_root=base_path)
-            logger.info(
-                "ModernBiasPredictor loaded: model=%s sha256=%s",
-                _modern_predictor.model_name,
-                (_modern_predictor.model_sha256 or "")[:8],
-            )
-        except Exception as exc:
-            logger.warning(
-                "ModernBiasPredictor unavailable (%s); falling back to legacy",
-                exc,
-            )
-            _modern_predictor = None
-
-        # Legacy predictor kept as a fallback when modern artifacts missing.
-        try:
-            _predictor = load_predictor(model_name="random_forest")
-        except Exception as exc:
-            logger.warning("Legacy predictor unavailable: %s", exc)
-            _predictor = None
-
-        _pipeline = (
-            InferencePipeline(
-                _predictor, base_path=str(base_path), enable_docking=False
-            )
-            if _predictor is not None
-            else None
+        # ModernBiasPredictor loads the production sklearn-Pipeline artifacts
+        # (selection_decision.json -> calibrated LightGBM, 4-class label encoder).
+        _modern_predictor = ModernBiasPredictor(repo_root=base_path)
+        logger.info(
+            "ModernBiasPredictor loaded: model=%s sha256=%s",
+            _modern_predictor.model_name,
+            (_modern_predictor.model_sha256 or "")[:8],
         )
+
         _receptor_manager = ReceptorManager(base_path=str(base_path))
         _visualizer = MolecularVisualizer()
         _result_visualizer = ResultVisualizer()
@@ -389,11 +364,16 @@ def run_prediction(
                 shap_df = pd.DataFrame(
                     [{"Feature": n, "SHAP value": f"{v:+.4f}"} for n, v in top_shap]
                 )
-        elif _predictor is not None:
-            predicted_class, probabilities = _predictor.predict(features_df)
+        elif not receptor_uniprot:
+            return (
+                "❌ **Error:** Select a receptor — SABER predicts biased agonism "
+                "for a (ligand, receptor) pair, so a receptor UniProt accession is required.",
+                {}, "", "", "", None, gr.update(visible=True), gr.update(visible=False), None, "", "", None
+            )
         else:
             return (
-                "❌ **Error:** No predictor available",
+                "❌ **Error:** Prediction model unavailable. Check that the trained "
+                "artefacts exist under data/processed/ml_models/.",
                 {}, "", "", "", None, gr.update(visible=True), gr.update(visible=False), None, "", "", None
             )
 
