@@ -7,9 +7,16 @@ stand out *across* regimes. A feature that survives the hardest regimes
 (receptor-grouped, temporal) is a far stronger mechanistic candidate than one
 that is only "important" under the friendly stratified split.
 
+Also reports **block-level attribution**: the share of total mean|SHAP| carried
+by each information source (ligand-only chemistry, pair-level docking, docked-pose
+shape, receptor-ligand contacts). A ranked feature list can hide what a model
+actually reads — a per-receptor constant looks "docking-derived" by its name.
+The block table cannot hide it, because it asks what the column can vary with.
+
 Outputs (data/processed/ml_models/interpretability/):
   - shap_per_regime.csv       : (feature, regime, selection_frequency, mean_abs_shap)
   - shap_cross_regime.csv     : (feature, n_regimes_top, regimes, mean_selection_freq)
+  - shap_block_attribution.csv: (block, regime, shap_share_pct, n_features)
 """
 from __future__ import annotations
 import warnings, json
@@ -181,6 +188,69 @@ def main():
     print(summ.head(20).to_string(index=False))
     survive_all = summ[summ["n_regimes_top"] == len(regimes)]["feature"].tolist()
     print(f"\nSurvive ALL {len(regimes)} regimes (sf>=0.5 each): {survive_all}")
+
+    block_attribution(allrows)
+
+
+# --------------------------------------------------------- block attribution
+
+POSE_3D = frozenset({
+    "Asphericity", "Eccentricity", "InertialShapeFactor", "NPR1", "NPR2",
+    "PMI1", "PMI2", "PMI3", "RadiusOfGyration", "SpherocityIndex",
+})
+
+
+def feature_block(col: str) -> str:
+    """Map a column to the information source it can carry.
+
+    Grouping by *name* would be misleading — ``gnina_cnn_score`` reads as a
+    docking feature but is a per-receptor constant. Grouping by what the column
+    can vary with is the honest question.
+    """
+    # Should never appear: these are excluded from X by
+    # preprocessing.RECEPTOR_QC_COLS. Given its own block so that a regression
+    # shows up as a labelled row instead of being absorbed by the catch-all.
+    if col.startswith(("gnina_", "redock_", "docking_confidence")):
+        return "!! receptor-level QC (should be absent)"
+    if col.startswith("ifp_") or col in {"n_residues_contacted", "n_total_contacts"}:
+        return "receptor-ligand contacts (ProLIF)"
+    if col.startswith("vina_") or col == "n_poses":
+        return "pair-level docking energetics"
+    if col in POSE_3D:
+        return "docked-pose 3D shape"
+    if col.startswith(("morgan", "maccs")):
+        return "ligand-only 2D fingerprint"
+    return "ligand-only 2D descriptor"
+
+
+def block_attribution(allrows: pd.DataFrame) -> pd.DataFrame:
+    """Share of total mean|SHAP| per information block, per regime."""
+    tab = allrows.copy()
+    tab["block"] = tab["feature"].map(feature_block)
+    piv = tab.pivot_table(index="block", columns="regime",
+                          values="mean_abs_shap", aggfunc="sum")
+    share = (piv / piv.sum()) * 100
+    n_feat = tab.drop_duplicates("feature").groupby("block").size()
+
+    out = share.reset_index().melt(id_vars="block", var_name="regime",
+                                   value_name="shap_share_pct")
+    out["shap_share_pct"] = out["shap_share_pct"].round(2)
+    out["n_features"] = out["block"].map(n_feat)
+    out.to_csv(OUT / "shap_block_attribution.csv", index=False)
+
+    print("\n=== BLOCK ATTRIBUTION — share of total mean|SHAP| (%) ===")
+    disp = share.round(1)
+    disp["n_feat"] = n_feat.reindex(disp.index)
+    order = [c for c in ("stratified", "scaffold", "receptor", "temporal")
+             if c in disp.columns] + ["n_feat"]
+    key = "receptor" if "receptor" in disp.columns else disp.columns[0]
+    print(disp[order].sort_values(key, ascending=False).to_string())
+
+    structural = share.drop(index=[b for b in share.index
+                                   if b.startswith("ligand-only")], errors="ignore")
+    print(f"\nStructural blocks total: "
+          f"{structural.sum().round(1).to_dict()}")
+    return out
 
 
 if __name__ == "__main__":
