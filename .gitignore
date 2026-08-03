@@ -163,4 +163,8 @@ data/processed/.docking_work_smoke_*/
 # Manuscript-builder scripts (manuscript artefacts go in supplementary)
 scripts/build_manuscript_docx.js
 scripts/build_manuscript_docx.py
+scripts/build_docx.js
+scripts/build_jcheminform_docx.js
+scripts/build_natcomms_docx.js
+scripts/apa_out.json
 scripts/figures/
