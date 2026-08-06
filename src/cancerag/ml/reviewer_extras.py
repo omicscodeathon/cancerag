@@ -113,12 +113,19 @@ def compute_learning_curve(
 # ----------------------------------------------- ablation: structural features off
 
 
+# Columns the ablation removes to measure the structural arm's contribution.
+#
+# ``gnina_``, ``redock_`` and ``docking_confidence_`` used to be listed here.
+# They are per-receptor constants and no longer enter X at all
+# (preprocessing.RECEPTOR_QC_COLS), so including them made this ablation
+# measure "docking features plus a receptor identity tag" and attribute the
+# whole difference to structure. Every prefix below varies with the
+# (ligand, receptor) pair, so the resulting Delta is attributable to structure.
 STRUCTURAL_PREFIXES = (
-    "vina_", "ifp_", "gnina_", "redock_", "n_residues_contacted",
+    "vina_", "ifp_", "n_residues_contacted",
     "n_total_contacts", "Asphericity", "Eccentricity", "InertialShapeFactor",
     "NPR1", "NPR2", "PMI1", "PMI2", "PMI3", "RadiusOfGyration",
     "SpherocityIndex", "pose_3d_missing", "ifp_missing", "ifp_no_contacts",
-    "docking_confidence_",
 )
 
 

@@ -25,9 +25,11 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from cancerag.ml.preprocessing import (
+    RECEPTOR_QC_COLS,
     CorrelationFilter,
     PerReceptorFamilyImputer,
     assignment_dataframe,
+    identify_columns,
     murcko_scaffold,
     receptor_grouped_split,
     scaffold_groups,
@@ -275,3 +277,69 @@ class TestCorrelationFilter:
     def test_rejects_non_dataframe(self):
         with pytest.raises(TypeError):
             CorrelationFilter().fit(np.array([[1, 2], [3, 4]]))
+
+
+@pytest.mark.unit
+class TestReceptorQCExcludedFromFeatures:
+    """Per-receptor structure-prep QC must never reach X.
+
+    These columns are computed once per receptor and broadcast to every row for
+    that receptor, so they encode receptor identity rather than ligand ×
+    receptor chemistry. A learner that picks them up scores well by naming the
+    receptor instead of reading the docking. They belong in ``sample_weight``.
+    """
+
+    def _frame(self):
+        return pd.DataFrame({
+            # meta
+            "bias_category": ["G protein", "ERK", "G protein", "ERK"],
+            "receptor_uniprot": ["P41145", "P41145", "P35372", "P35372"],
+            "sample_weight": [1.0, 0.6, 1.0, 1.0],
+            # the QC columns — note each is constant within a receptor
+            "gnina_cnn_score": [0.83, 0.83, 0.41, 0.41],
+            "redock_rmsd_angstrom": [1.2, 1.2, 3.4, 3.4],
+            "gnina_cnn_score_missing": [0, 0, 0, 0],
+            "redock_rmsd_angstrom_missing": [0, 0, 0, 0],
+            "docking_confidence": ["high", "high", "low", "low"],
+            # genuine pair-level and ligand features
+            "vina_affinity_best": [-9.1, -7.4, -8.8, -6.2],
+            "LogP": [2.1, 3.3, 1.4, 4.0],
+        })
+
+    def test_qc_columns_absent_from_feature_cols(self):
+        cols = identify_columns(self._frame())
+        for qc in RECEPTOR_QC_COLS:
+            assert qc not in cols["feature_cols"], f"{qc} leaked into X"
+
+    def test_docking_confidence_not_one_hot_encoded(self):
+        # It is a deterministic function of the other two QC values, so
+        # one-hot encoding it re-introduces the same receptor tag a third time.
+        cols = identify_columns(self._frame())
+        assert cols["categorical_features"] == []
+
+    def test_genuine_features_survive(self):
+        cols = identify_columns(self._frame())
+        assert "vina_affinity_best" in cols["feature_cols"]
+        assert "LogP" in cols["feature_cols"]
+
+    def test_no_feature_is_constant_within_every_receptor(self):
+        """The general property the QC columns violated.
+
+        Guards against a future column being broadcast per receptor. Binary
+        columns are exempt: a fingerprint bit can be receptor-constant by
+        coincidence when a receptor has few ligands, which is not the same
+        defect.
+        """
+        df = self._frame()
+        cols = identify_columns(df)
+        offenders = [
+            c for c in cols["feature_cols"]
+            if df[c].nunique() > 2
+            and df.groupby("receptor_uniprot")[c].nunique().max() <= 1
+        ]
+        assert offenders == [], f"receptor-constant columns in X: {offenders}"
+
+    def test_sample_weight_still_available(self):
+        cols = identify_columns(self._frame())
+        assert cols["weight_col"] == "sample_weight"
+        assert "sample_weight" not in cols["feature_cols"]

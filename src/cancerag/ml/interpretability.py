@@ -242,6 +242,44 @@ def validated_top_features(
     return validated
 
 
+DOMINANCE_RATIO_LIMIT = 5.0
+
+
+def dominance_check(
+    perm: pd.DataFrame, *, limit: float = DOMINANCE_RATIO_LIMIT,
+) -> dict:
+    """Flag a single feature that carries implausibly much of the model.
+
+    Permutation importance answers a question SHAP does not: how much does the
+    model *depend* on this column? A feature whose importance dwarfs every other
+    is usually not a strong predictor but a proxy — an identifier, a leaked
+    label, or a per-group constant the learner can memorise.
+
+    This is the check that would have caught ``gnina_cnn_score``: permutation
+    importance 0.0392 against 0.0020 for the runner-up, a ratio of ~20 in a
+    2,852-feature model, while every SHAP summary simply listed it first.
+    """
+    ranked = perm.sort_values("perm_importance_mean", ascending=False)
+    ranked = ranked[ranked["perm_importance_mean"] > 0]
+    if len(ranked) < 2:
+        return {"ratio": None, "passed": True, "top": None, "runner_up": None}
+    top, runner_up = ranked.iloc[0], ranked.iloc[1]
+    ratio = float(top["perm_importance_mean"] / runner_up["perm_importance_mean"])
+    passed = ratio <= limit
+    if not passed:
+        logger.warning(
+            "Dominance check FAILED: %s carries %.1fx the permutation importance "
+            "of %s (limit %.1fx). Verify it is not a proxy for group identity.",
+            top["feature"], ratio, runner_up["feature"], limit,
+        )
+    return {
+        "ratio": ratio, "passed": passed, "limit": limit,
+        "top": str(top["feature"]), "top_importance": float(top["perm_importance_mean"]),
+        "runner_up": str(runner_up["feature"]),
+        "runner_up_importance": float(runner_up["perm_importance_mean"]),
+    }
+
+
 def write_interpretability_report(
     stability: pd.DataFrame,
     perm: pd.DataFrame,
@@ -252,6 +290,27 @@ def write_interpretability_report(
     output_path = Path(output_path)
     md = ["# Stage 11 — Interpretability report", "",
           f"_Generated: {datetime.now(timezone.utc).isoformat()}_  ", ""]
+    dom = dominance_check(perm)
+    md.append("## Single-feature dominance check")
+    md.append("")
+    if dom["ratio"] is None:
+        md.append("_Not enough features with positive permutation importance._")
+    else:
+        verdict = "PASS" if dom["passed"] else "FAIL"
+        md.append(
+            f"**{verdict}** — `{dom['top']}` carries **{dom['ratio']:.1f}×** the "
+            f"permutation importance of the runner-up `{dom['runner_up']}` "
+            f"({dom['top_importance']:.4f} vs {dom['runner_up_importance']:.4f}); "
+            f"limit is {dom['limit']:.1f}×."
+        )
+        if not dom["passed"]:
+            md.append("")
+            md.append(
+                "> A feature this dominant is usually a proxy for group identity "
+                "rather than a mechanism. Check whether it is constant within "
+                "receptor, ligand or assay before interpreting it."
+            )
+    md.append("")
     md.append("## Top 20 features by SHAP stability across folds × seeds")
     md.append("")
     md.append("| feature | selection frequency | mean|SHAP| |")
