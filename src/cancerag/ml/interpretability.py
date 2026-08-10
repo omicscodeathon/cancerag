@@ -110,9 +110,9 @@ def shap_across_folds(
     feature_total: dict[str, float] = {}
     n_runs = 0
     from cancerag.ml.preprocessing import build_full_pipeline
-    from cancerag.ml.model_training import MODEL_FACTORIES, _combined_weight
+    from cancerag.ml.model_training import MODEL_FACTORIES, _combined_weight, resolve_model_factory
 
-    factory = MODEL_FACTORIES[winner.split("_")[0] if "_" in winner else winner]
+    factory = resolve_model_factory(winner)
     for seed in seeds:
         logger.info("SHAP fold-loop, seed=%d", seed)
         splits = make_grouped_cv(df, group_col="scaffold",

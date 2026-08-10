@@ -147,6 +147,91 @@ MODEL_FACTORIES = {
 }
 
 
+SELECTOR_DEFAULTS: dict = {
+    "enabled": False,
+    "method": "boruta",
+    "max_iter": 100,
+    "force_keep_structural": False,
+}
+
+
+def load_selector_config(config_path: Path | str = "configs/config.yaml") -> dict:
+    """Read ``ml_model.feature_selection`` from the YAML config.
+
+    A missing file or missing block yields the defaults (selection off), so the
+    pipeline stays runnable without a config and reproduces published results.
+    """
+    cfg = dict(SELECTOR_DEFAULTS)
+    path = Path(config_path)
+    if not path.exists():
+        return cfg
+    try:
+        import yaml
+
+        loaded = yaml.safe_load(path.read_text()) or {}
+        block = (loaded.get("ml_model") or {}).get("feature_selection") or {}
+        unknown = set(block) - set(SELECTOR_DEFAULTS)
+        if unknown:
+            logger.warning(
+                "ignoring unknown feature_selection keys in %s: %s",
+                path, sorted(unknown),
+            )
+        cfg.update({k: v for k, v in block.items() if k in SELECTOR_DEFAULTS})
+    except Exception as exc:
+        logger.warning("could not read selector config from %s (%s); "
+                       "falling back to selection OFF", path, exc)
+    return cfg
+
+
+def build_selector(selector_config: dict | None, *, seed: int):
+    """Instantiate the configured selector, or None when selection is off."""
+    cfg = {**SELECTOR_DEFAULTS, **(selector_config or {})}
+    if not cfg.get("enabled"):
+        return None
+    from cancerag.ml.feature_selection import FORCE_KEEP_PREFIXES, SELECTORS
+
+    method = str(cfg.get("method", "boruta"))
+    if method not in SELECTORS:
+        raise KeyError(
+            f"unknown feature_selection.method {method!r}; "
+            f"choose one of {sorted(SELECTORS)}"
+        )
+    kwargs = {
+        "force_keep_prefixes": (
+            FORCE_KEEP_PREFIXES if cfg.get("force_keep_structural") else ()
+        ),
+        "random_state": seed,
+    }
+    if method == "boruta":
+        kwargs["max_iter"] = int(cfg.get("max_iter", 100))
+    return SELECTORS[method](**kwargs)
+
+
+def resolve_model_factory(name: str):
+    """Look up a factory from a selection-decision name.
+
+    Downstream stages record either a bare model name (``random_forest``) or a
+    suffixed variant (``lightgbm_tuned``). Callers used to strip at the first
+    underscore, which silently assumed every model name was one word:
+    ``random_forest`` became ``random`` and ``elastic_lr`` became ``elastic``,
+    so two of the five models raised KeyError. It went unnoticed because the
+    bake-off had always chosen lightgbm; the first run that selected random
+    forest took down both SHAP stages.
+
+    Longest-prefix match handles bare and suffixed names alike.
+    """
+    if name in MODEL_FACTORIES:
+        return MODEL_FACTORIES[name]
+    parts = name.split("_")
+    for cut in range(len(parts) - 1, 0, -1):
+        candidate = "_".join(parts[:cut])
+        if candidate in MODEL_FACTORIES:
+            return MODEL_FACTORIES[candidate]
+    raise KeyError(
+        f"no model factory for {name!r}; known: {sorted(MODEL_FACTORIES)}"
+    )
+
+
 # --------------------------------------------- baselines (kept from old API)
 
 
@@ -256,7 +341,8 @@ def _eval_pipeline_on_fold(
 
 def _build_pipeline_for(model_name: str, n_classes: int, seed: int,
                         *, with_selector: bool = True,
-                        family_col: str | None = None) -> Pipeline:
+                        family_col: str | None = None,
+                        selector_config: dict | None = None) -> Pipeline:
     """Build the per-fold preprocessing+selection+model pipeline.
 
     Imputation is global-median by default. Pass ``family_col`` (and supply that
@@ -264,9 +350,21 @@ def _build_pipeline_for(model_name: str, n_classes: int, seed: int,
     per-receptor-family median imputation; given the dataset's whole-receptor,
     indicator-flagged missingness this leaves results unchanged, so it is
     available but off by default.
+
+    The selector, when enabled, is built from ``selector_config`` — method,
+    iteration count and whether the structural columns are exempt all come from
+    ``ml_model.feature_selection`` in the YAML config. It sits inside the
+    Pipeline, so it is refitted on the training rows of each fold and never
+    sees the held-out rows.
     """
     factory = MODEL_FACTORIES[model_name]
     model = factory(n_classes=n_classes, random_state=seed)
+    if with_selector and selector_config is not None:
+        selector = build_selector({**selector_config, "enabled": True}, seed=seed)
+        return build_full_pipeline(
+            model, impute=True, family_col=family_col,
+            correlation_threshold=0.97, scale=True, selector=selector,
+        )
     selector = (
         BorutaSelector(max_iter=30, random_state=seed)
         if with_selector else None
@@ -293,9 +391,32 @@ def run_model_training(
                               "elastic_lr", "random_forest"),
     seeds: Sequence[int] = SEEDS_DEFAULT,
     cv_n_folds: int = 5,
-    use_selector_in_pipeline: bool = False,
+    use_selector_in_pipeline: bool | None = None,
+    selector_config: dict | None = None,
+    config_path: Path | str | None = "configs/config.yaml",
 ) -> dict:
-    """Run the full multi-model × multi-seed × 4-mode evaluation."""
+    """Run the full multi-model × multi-seed × 4-mode evaluation.
+
+    Feature selection is driven by ``ml_model.feature_selection`` in
+    ``configs/config.yaml`` and can be overridden per call. Precedence is
+    explicit argument, then config file, then off — so the default reproduces
+    every result published to date, since no wrapper selection has ever been
+    part of the production model.
+    """
+    selector_config = dict(selector_config or {})
+    if not selector_config and config_path:
+        selector_config = load_selector_config(config_path)
+    if use_selector_in_pipeline is None:
+        use_selector_in_pipeline = bool(selector_config.get("enabled", False))
+    if use_selector_in_pipeline:
+        logger.info(
+            "feature selection ON: method=%s max_iter=%s force_keep_structural=%s",
+            selector_config.get("method", "boruta"),
+            selector_config.get("max_iter", 100),
+            selector_config.get("force_keep_structural", False),
+        )
+    else:
+        logger.info("feature selection OFF (variance + correlation filters still apply)")
     output_dir = Path(output_dir); output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "figures").mkdir(exist_ok=True)
     df = pd.read_parquet(dataset_path)
@@ -336,6 +457,7 @@ def run_model_training(
                     pipe = _build_pipeline_for(
                         mname, n_classes, seed,
                         with_selector=use_selector_in_pipeline,
+                        selector_config=selector_config,
                     )
                     try:
                         r = _eval_pipeline_on_fold(
@@ -427,6 +549,7 @@ def run_model_training(
     final_pipe = _build_pipeline_for(
         winner, n_classes, SEEDS_DEFAULT[0],
         with_selector=use_selector_in_pipeline,
+        selector_config=selector_config,
     )
     cw_all = _combined_weight(y, sw)
     last_name = final_pipe.steps[-1][0]
