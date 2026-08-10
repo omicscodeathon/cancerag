@@ -200,16 +200,58 @@ def align_structure_to_sequence(
     return mapping, identity
 
 
+# The most conserved residue of each helix — the anchors the whole scheme is
+# built on. If an alignment is sound these land on the right amino acid; if it
+# has slipped, they do not.
+BW_ANCHORS: dict[str, str] = {
+    "1.50": "N", "2.50": "D", "3.50": "R", "6.50": "P", "7.50": "P",
+}
+
+
+def _anchor_agreement(
+    bw_map: dict[int, str], struct: list[tuple[int, str]],
+) -> tuple[int, int]:
+    """(anchors landing on the expected residue, anchors present at all)."""
+    residue = dict(struct)
+    inverse = {v: k for k, v in bw_map.items()}
+    present = ok = 0
+    for generic, expected in BW_ANCHORS.items():
+        num = inverse.get(generic)
+        if num is None:
+            continue
+        present += 1
+        if residue.get(num) == expected:
+            ok += 1
+    return ok, present
+
+
 def receptor_bw_map(
-    accession: str, pdb_path: Path | str, *, min_identity: float = 0.80,
+    accession: str,
+    pdb_path: Path | str,
+    *,
+    min_identity: float = 0.50,
+    min_anchors: int = 3,
 ) -> tuple[dict[int, str], dict]:
-    """{structure residue number -> BW number} for one receptor, plus a report."""
+    """{structure residue number -> BW number} for one receptor, plus a report.
+
+    Validated by anchor agreement rather than by sequence identity alone.
+    Identity is a poor gate here: seven aminergic receptors in this set (D2, D3,
+    D4, M1, M2, alpha-2A, alpha-2C) align to their own canonical sequence at
+    only 0.64-0.77 — non-human orthologs or engineered constructs — yet their
+    mappings are structurally perfect, placing 3.32 on the aspartate that
+    anchors every aminergic ligand and 6.50 on the CWxP proline. An 0.80
+    identity cut discarded exactly the family that BW numbering helps most.
+
+    Anchor agreement separates cleanly on this dataset: 54 receptors match all
+    five anchors, two match four, and only the class C calcium-sensing receptor
+    matches none — which is correct, as class C does not use class A numbering.
+    """
     pos_to_bw, canonical = uniprot_position_to_bw(accession)
     struct = structure_residues(pdb_path)
     report = {
         "accession": accession, "n_structure_residues": len(struct),
         "n_bw_positions": len(pos_to_bw), "identity": 0.0,
-        "n_mapped": 0, "status": "ok",
+        "n_mapped": 0, "anchors_ok": 0, "anchors_present": 0, "status": "ok",
     }
     if not pos_to_bw or not canonical:
         report["status"] = "no_gpcrdb_record"
@@ -222,6 +264,12 @@ def receptor_bw_map(
         return {}, report
 
     out = {n: pos_to_bw[u] for n, u in struct_to_uni.items() if u in pos_to_bw}
+    ok, present = _anchor_agreement(out, struct)
+    report["anchors_ok"], report["anchors_present"] = ok, present
+    if ok < min_anchors:
+        report["status"] = f"anchor_mismatch({ok}/{present})"
+        return {}, report
+
     report["n_mapped"] = len(out)
     return out, report
 
