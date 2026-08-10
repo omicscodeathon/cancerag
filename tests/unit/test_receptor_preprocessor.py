@@ -231,3 +231,74 @@ class TestPrepareReceptor:
 class TestRetainHetDefaults:
     def test_sodium_in_default_retain_set(self):
         assert "NA" in RETAIN_HET_RESNAMES_DEFAULT
+
+
+@pytest.mark.unit
+class TestChainIdentityGate:
+    """The prepared chain must actually be the target receptor.
+
+    Chain selection has several fallible paths: DBREF parsing (multi-line
+    DBREF1/DBREF2 records are unhandled), a sequence rescue, a ``prefer``
+    default of "A", and a final "longest chain" fallback. In a GPCR-G-protein
+    complex chain A is routinely the Galpha subunit and the receptor sits on
+    chain R, so a silent fallback produces a structure that is not the receptor.
+
+    Seven of 61 prepared receptors were found in this state: three held a
+    Galpha subunit, one a Gbeta subunit, one a crystallisation antibody Fab,
+    and kappa-opioid held a neurotensin receptor. Verifying the written chain
+    against the canonical sequence catches every path at once. Coverage is
+    checked alongside identity because a degenerate three-residue alignment
+    scores 1.00 identity — two of the seven passed on identity alone.
+    """
+
+    def test_verify_accepts_matching_sequence(self, tmp_path: Path, monkeypatch):
+        from cancerag.preprocessing import receptor_preprocessor as rp
+
+        pdb = tmp_path / "rec.pdb"
+        _write_synthetic_pdb(pdb, n_chain_a=220)
+        # The synthetic writer emits poly-alanine on chain A.
+        monkeypatch.setattr(rp, "_fetch_uniprot_sequence", lambda _: "A" * 220)
+        identity, coverage = rp.verify_chain_identity(pdb, "P00000")
+        assert identity == pytest.approx(1.0)
+        assert coverage == pytest.approx(1.0)
+
+    def test_verify_rejects_unrelated_sequence(self, tmp_path: Path, monkeypatch):
+        from cancerag.preprocessing import receptor_preprocessor as rp
+
+        pdb = tmp_path / "rec.pdb"
+        _write_synthetic_pdb(pdb, n_chain_a=220)
+        # Nothing in common with poly-alanine: stands in for a Galpha subunit.
+        monkeypatch.setattr(rp, "_fetch_uniprot_sequence", lambda _: "W" * 300)
+        identity, coverage = rp.verify_chain_identity(pdb, "P00000")
+        assert identity < 0.55
+
+    def test_prepare_receptor_raises_on_wrong_molecule(
+        self, tmp_path: Path, monkeypatch
+    ):
+        from cancerag.preprocessing import receptor_preprocessor as rp
+
+        pdb = tmp_path / "rec.pdb"
+        _write_synthetic_pdb(pdb, n_chain_a=220)
+        monkeypatch.setattr(rp, "_fetch_uniprot_sequence", lambda _: "W" * 300)
+        with pytest.raises(ValueError, match="G-protein subunit"):
+            prepare_receptor(
+                input_pdb=pdb,
+                output_pdb=tmp_path / "out.pdb",
+                target_uniprot="P00000",
+            )
+
+    def test_offline_does_not_reject(self, tmp_path: Path, monkeypatch):
+        """A network outage must not be indistinguishable from a bad chain."""
+        from cancerag.preprocessing import receptor_preprocessor as rp
+
+        pdb = tmp_path / "rec.pdb"
+        _write_synthetic_pdb(pdb, n_chain_a=220)
+        monkeypatch.setattr(rp, "_fetch_uniprot_sequence", lambda _: None)
+        identity, coverage = rp.verify_chain_identity(pdb, "P00000")
+        assert identity is None and coverage is None
+        meta = prepare_receptor(
+            input_pdb=pdb,
+            output_pdb=tmp_path / "out.pdb",
+            target_uniprot="P00000",
+        )
+        assert meta["chain_identity_to_uniprot"] is None
