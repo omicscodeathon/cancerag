@@ -24,6 +24,14 @@ Mapping chain (GPCRdb is the authority for the generic numbers):
     prolif residue index  --[sequence alignment]-->  UniProt position
     UniProt position      --[GPCRdb residue table]-->  BW generic number
 
+**Always build the map from the ``.prolif_H.pdb`` file, never the prepared
+``.pdb``.** ProLIF writes column names against the protonated structure, which
+is renumbered from 1, while the prepared structure keeps the crystal numbering
+(kappa-opioid runs 57..339). Reading ``ifp_ASP82`` against the prepared file
+resolves to a residue 28 A outside a 22 A docking box; against the prolif file
+it is D3.32, the conserved salt-bridge anchor. Both lookups succeed silently,
+so the mistake shows up as implausible pharmacology rather than an error.
+
 Class A only. Receptors GPCRdb does not cover (e.g. the class C calcium-sensing
 receptor) keep their original per-structure column names and are reported.
 """

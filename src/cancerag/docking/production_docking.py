@@ -107,12 +107,39 @@ def _smiles_to_3d_pdb(smiles: str, output_pdb: Path, *, seed: int = 42) -> bool:
     if mol is None:
         return False
     mol = Chem.AddHs(mol)
-    params = AllChem.ETKDGv3()
-    params.randomSeed = seed
-    if AllChem.EmbedMolecule(mol, params) != 0:
+
+    # Escalating attempts. Plain ETKDGv3 fails on large flexible peptides —
+    # the distance-geometry bounds are hard to satisfy for a 32-rotatable-bond
+    # chain, and one shot from a single seed simply gives up. Random starting
+    # coordinates plus more iterations recovers them, and retrying with fresh
+    # seeds costs nothing on the small molecules that succeed immediately.
+    attempts = []
+    for i, use_random in enumerate((False, True, True, True)):
+        p = AllChem.ETKDGv3()
+        p.randomSeed = seed + i * 7919      # co-prime stride, distinct basins
+        p.useRandomCoords = use_random
+        p.maxIterations = 2000 if use_random else 0   # 0 = RDKit default
+        p.enforceChirality = True
+        attempts.append(p)
+
+    embedded = False
+    for p in attempts:
+        if AllChem.EmbedMolecule(mol, p) == 0:
+            embedded = True
+            break
+    if not embedded:
+        logger.warning(
+            "ETKDG failed after %d attempts for a %d-atom ligand",
+            len(attempts), mol.GetNumAtoms(),
+        )
         return False
+
     try:
-        AllChem.MMFFOptimizeMolecule(mol)
+        # MMFF has no parameters for some groups; UFF covers the rest.
+        if AllChem.MMFFHasAllMoleculeParams(mol):
+            AllChem.MMFFOptimizeMolecule(mol, maxIters=2000)
+        else:
+            AllChem.UFFOptimizeMolecule(mol, maxIters=2000)
     except Exception:
         pass  # optimization is nice-to-have, not required
     Chem.MolToPDBFile(mol, str(output_pdb))
@@ -307,6 +334,32 @@ def build_job_list(
     return jobs
 
 
+def _ensure_children_can_import() -> None:
+    """Make ``cancerag`` importable in spawned workers.
+
+    ``spawn`` re-execs a fresh interpreter that does not inherit the parent's
+    ``sys.path``. When the package is reachable only through a path entry —
+    running with ``PYTHONPATH=src``, or any non-installed checkout — the child
+    cannot import the module holding :func:`run_one_dock`, so unpickling the
+    task fails and the worker dies before doing any work. The visible symptom
+    is the whole batch "completing" in seconds with every job carrying
+    ``worker crash`` and ``success=False``: a silent total failure that looks
+    like a docking problem rather than an import problem.
+
+    An ``initializer=`` cannot fix this — it would have to be unpickled by the
+    same broken import. ``PYTHONPATH`` is read by the child interpreter at
+    startup, before any unpickling, so exporting the package's parent
+    directory is what actually reaches the worker.
+    """
+    import cancerag
+
+    pkg_parent = str(Path(cancerag.__file__).resolve().parents[1])
+    existing = [p for p in os.environ.get("PYTHONPATH", "").split(os.pathsep) if p]
+    if pkg_parent not in existing:
+        os.environ["PYTHONPATH"] = os.pathsep.join([pkg_parent, *existing])
+        logger.debug("added %s to PYTHONPATH for spawned workers", pkg_parent)
+
+
 def run_distributed(
     jobs: list[DockingJob],
     *,
@@ -326,6 +379,7 @@ def run_distributed(
     results: list[dict] = []
     started_at = time.time()
 
+    _ensure_children_can_import()
     # spawn context: avoid fork inheriting RDKit/CUDA state
     ctx = mp.get_context("spawn")
     with ProcessPoolExecutor(
