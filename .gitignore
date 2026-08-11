@@ -166,5 +166,6 @@ scripts/build_manuscript_docx.py
 scripts/build_docx.js
 scripts/build_jcheminform_docx.js
 scripts/build_natcomms_docx.js
+scripts/build_imrad_md.py
 scripts/apa_out.json
 scripts/figures/
