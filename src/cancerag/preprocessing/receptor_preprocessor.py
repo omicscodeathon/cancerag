@@ -698,6 +698,56 @@ def _parse_dbref_chain_to_uniprot(
     return mapping
 
 
+def verify_chain_identity(
+    pdb_path: Path | str, target_uniprot: str,
+) -> tuple[float | None, float | None]:
+    """Align a prepared single-chain structure to its canonical UniProt sequence.
+
+    Returns ``(identity, coverage)``, or ``(None, None)`` when the canonical
+    sequence cannot be fetched (offline) — callers treat that as "unverified"
+    rather than "failed", so a network outage cannot silently reject receptors.
+
+    Identity is computed over *aligned* residue pairs, not over the whole
+    construct. GPCR structures routinely carry a fusion partner (T4-lysozyme,
+    BRIL) spliced into ICL3 — beta2-adrenergic is 443 residues against a
+    413-residue receptor — and those residues correctly align to nothing.
+    Scoring them as mismatches would reject every fusion construct in the set.
+    Coverage reports what fraction of the construct did align, so a degenerate
+    three-residue alignment cannot masquerade as a perfect match.
+    """
+    canonical = _fetch_uniprot_sequence(target_uniprot)
+    if not canonical:
+        return None, None
+    parser = PDBParser(QUIET=True)
+    structure = parser.get_structure("rec", str(pdb_path))
+    chain_ids = [c.id for m in structure for c in m]
+    if not chain_ids:
+        return 0.0, 0.0
+    query = _chain_one_letter(structure, chain_ids[0]).replace("X", "")
+    if not query:
+        return 0.0, 0.0
+
+    from Bio.Align import PairwiseAligner
+
+    aligner = PairwiseAligner()
+    aligner.mode = "global"
+    aligner.match_score = 2.0
+    aligner.mismatch_score = -1.0
+    aligner.open_gap_score = -10.0
+    aligner.extend_gap_score = -0.5
+    aligner.target_end_gap_score = 0.0
+    aligner.query_end_gap_score = 0.0
+
+    aln = aligner.align(canonical, query)[0]
+    matches = aligned = 0
+    for (t0, t1), (q0, _) in zip(*aln.aligned):
+        for offset in range(t1 - t0):
+            aligned += 1
+            if canonical[t0 + offset] == query[q0 + offset]:
+                matches += 1
+    return matches / max(1, aligned), aligned / max(1, len(query))
+
+
 def detect_receptor_chain(
     pdb_path: Path | str,
     prefer: str = "A",
@@ -761,6 +811,8 @@ def prepare_receptor(
     altloc: str = "A",
     structure_source: str = "pdb",
     write_meta: bool = True,
+    min_chain_identity: float = 0.55,
+    min_chain_coverage: float = 0.30,
 ) -> dict:
     """Curate a single receptor PDB and emit a `.prep.meta.json` sidecar.
 
@@ -835,7 +887,35 @@ def prepare_receptor(
     io.set_structure(structure)
     io.save(str(output_pdb), selector)
 
+    # Identity gate. Chain choice has several fallible paths — DBREF parsing
+    # (DBREF1/DBREF2 multi-line records are not handled), a sequence rescue,
+    # a ``prefer`` default of "A", and finally "longest chain". In a
+    # GPCR-G-protein complex, chain A is routinely the Galpha subunit and the
+    # receptor sits on chain R, so a silent fallback yields a structure that
+    # is not the receptor at all. Verifying the written chain against the
+    # canonical sequence catches every such path at once, whatever the cause.
+    identity = coverage = None
+    if target_uniprot:
+        identity, coverage = verify_chain_identity(
+            output_pdb, target_uniprot,
+        )
+        if identity is not None and (
+            identity < min_chain_identity or coverage < min_chain_coverage
+        ):
+            raise ValueError(
+                f"prepare_receptor: chain {chosen_chain} of {input_pdb} matches "
+                f"{target_uniprot} at identity={identity:.2f}, "
+                f"coverage={coverage:.2f}; expected identity >= "
+                f"{min_chain_identity:.2f} and coverage >= {min_chain_coverage:.2f}. "
+                "The selected chain is probably a G-protein subunit, a "
+                "crystallisation antibody, or a different receptor entirely."
+            )
+
     meta = {
+        "chain_identity_to_uniprot": (
+            round(identity, 4) if identity is not None else None
+        ),
+        "chain_coverage": round(coverage, 4) if coverage is not None else None,
         "input_pdb": str(input_pdb),
         "output_pdb": str(output_pdb),
         "input_sha256": input_sha,

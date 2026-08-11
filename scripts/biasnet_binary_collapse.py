@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import warnings
 
+from pathlib import Path
+
 import joblib
 import numpy as np
 import pandas as pd
@@ -23,7 +25,23 @@ from cancerag.ml.preprocessing import get_X_y_groups
 
 warnings.filterwarnings("ignore")
 
-CAL_PATH = "data/processed/ml_models/lightgbm_final_calibrated.joblib"
+def _calibrated_model_path() -> str:
+    """Path to the calibrated final model of whichever learner the bake-off chose.
+
+    Hardcoding the LightGBM artefact silently loaded a stale model once the
+    selection decision changed to random forest: the saved pipeline had been
+    fitted on the pre-Ballesteros-Weinstein feature names, so scoring the
+    current holdout raised a feature-name mismatch rather than a wrong number.
+    Reading the winner keeps this comparison tied to the reported model.
+    """
+    import json as _json
+
+    decision = Path("data/processed/ml_models/selection_decision.json")
+    winner = _json.loads(decision.read_text())["chosen"] if decision.exists() else "lightgbm"
+    return f"data/processed/ml_models/{winner}_final_calibrated.joblib"
+
+
+CAL_PATH = _calibrated_model_path()
 LE_PATH = "data/processed/ml_preprocessed/label_encoder.joblib"
 TRAIN_PATH = "data/processed/ml_ready_dataset.parquet"
 HOLDOUT_PATH = "data/holdout/dataset_holdout.parquet"

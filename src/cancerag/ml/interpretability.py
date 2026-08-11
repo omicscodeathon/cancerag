@@ -110,9 +110,9 @@ def shap_across_folds(
     feature_total: dict[str, float] = {}
     n_runs = 0
     from cancerag.ml.preprocessing import build_full_pipeline
-    from cancerag.ml.model_training import MODEL_FACTORIES, _combined_weight
+    from cancerag.ml.model_training import MODEL_FACTORIES, _combined_weight, resolve_model_factory
 
-    factory = MODEL_FACTORIES[winner.split("_")[0] if "_" in winner else winner]
+    factory = resolve_model_factory(winner)
     for seed in seeds:
         logger.info("SHAP fold-loop, seed=%d", seed)
         splits = make_grouped_cv(df, group_col="scaffold",
@@ -235,9 +235,23 @@ def validated_top_features(
             "perm_importance_mean": float(prow["perm_importance_mean"]),
             "perm_importance_std": float(prow["perm_importance_std"]),
         })
-    validated = pd.DataFrame(rows).sort_values(
-        "perm_importance_mean", ascending=False,
-    )
+    columns = ["feature", "shap_frequency", "shap_mean_abs",
+               "perm_importance_mean", "perm_importance_std"]
+    validated = pd.DataFrame(rows, columns=columns)
+    if not validated.empty:
+        validated = validated.sort_values("perm_importance_mean", ascending=False)
+    else:
+        # An empty intersection is a result, not a failure, and it must not
+        # crash the stage: pd.DataFrame([]) has no columns, so sorting by name
+        # raises KeyError. It happens when no single feature is load-bearing —
+        # a bagged forest over redundant features can lose almost nothing when
+        # any one column is permuted, so the permutation-importance side of the
+        # intersection is empty even though SHAP still ranks features fine.
+        logger.warning(
+            "SHAP-top-%d and permutation-top-%d do not intersect: no single "
+            "feature is individually load-bearing. Writing an empty "
+            "validated_features.csv.", top_n, top_n,
+        )
     validated.to_csv(output_dir / "validated_features.csv", index=False)
     return validated
 

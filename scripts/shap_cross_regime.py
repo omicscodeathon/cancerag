@@ -27,7 +27,7 @@ from sklearn.model_selection import StratifiedKFold
 warnings.filterwarnings("ignore")
 
 from cancerag.ml.preprocessing import get_X_y_groups, make_grouped_cv, build_full_pipeline
-from cancerag.ml.model_training import MODEL_FACTORIES, _combined_weight
+from cancerag.ml.model_training import MODEL_FACTORIES, _combined_weight, resolve_model_factory
 from cancerag.ml.interpretability import _shap_for_pipeline
 
 DATA = "data/processed/ml_ready_dataset.parquet"
@@ -142,7 +142,7 @@ def main():
     X, y, sw, le, _ = get_X_y_groups(df, label_encoder=le)
     n_classes = len(le.classes_)
     winner = json.loads(Path(DEC).read_text())["chosen"]
-    factory = MODEL_FACTORIES[winner.split("_")[0] if "_" in winner else winner]
+    factory = resolve_model_factory(winner)
     print(f"winner={winner} | classes={n_classes}")
 
     per = {}

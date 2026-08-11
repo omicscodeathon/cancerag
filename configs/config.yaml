@@ -73,3 +73,27 @@ ml_model:
   inner_cv_folds: 5
   bootstrap_ci_n: 1000
   applicability_domain_tanimoto: 0.4
+
+  # ---------------------------------------------------------------- selector
+  # Wrapper feature selection inside each CV fold. Off by default: it is the
+  # slowest step in the pipeline (Boruta builds a shadow copy of every column
+  # and refits a random forest up to `max_iter` times, per fold, per seed).
+  #
+  # `enabled: false` reproduces every result published to date — no wrapper
+  # selection has ever been part of the production model. The unsupervised
+  # variance and correlation filters always run regardless; they never look at
+  # the labels, so they are not selection in this sense.
+  feature_selection:
+    enabled: false
+    # boruta | rfecv | mutual_info | l1_logreg
+    method: "boruta"
+    # Boruta only: library default is 100. Lower is faster but makes each
+    # accept/reject decision noisier.
+    max_iter: 100
+    # Exempt the pair-level structural columns from the selector's verdict.
+    #
+    # Leave false for any claim about whether structural features survive
+    # selection: force-keeping puts 242 columns into the output by
+    # construction, so their presence stops being evidence of anything. Set
+    # true only to hold the structural arm fixed on purpose, and say so.
+    force_keep_structural: false
