@@ -169,3 +169,4 @@ scripts/build_natcomms_docx.js
 scripts/build_imrad_md.py
 scripts/apa_out.json
 scripts/figures/
+scripts/check_refs.py
