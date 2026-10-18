@@ -43,7 +43,23 @@ class TestConfigUpdated:
         cfg = yaml.safe_load(Path("configs/config.yaml").read_text())
         assert cfg["ml_model"]["test_size"] >= 0.20
         assert cfg["ml_model"]["split_strategy"] == "scaffold"
-        assert isinstance(cfg["ml_model"]["random_seeds"], list)
+
+    def test_no_dead_seed_or_box_keys(self):
+        """Config must not carry values the code ignores.
+
+        `ml_model.random_seeds` and `docking.default_binding_site` were never
+        read and disagreed with what the pipeline actually uses
+        (SEEDS_DEFAULT; the 22 A box from binding_site.py).
+        """
+        from cancerag.ml.model_training import SEEDS_DEFAULT
+        from cancerag.preprocessing.binding_site import DEFAULT_BOX_SIZE_ANGSTROM
+
+        assert SEEDS_DEFAULT == [42, 7, 13, 21, 99]
+        assert DEFAULT_BOX_SIZE_ANGSTROM == 22.0
+        for name in ("config.yaml", "config_fast.yaml"):
+            cfg = yaml.safe_load((Path("configs") / name).read_text())
+            assert "random_seeds" not in cfg.get("ml_model", {}), name
+            assert "default_binding_site" not in cfg.get("docking", {}), name
 
 
 @pytest.mark.unit
