@@ -183,8 +183,41 @@ class TestBuildJobList:
         )
         assert len(jobs) == 1
         j = jobs[0]
-        assert j.pair_id == "ABCDEFGHIJKLMN__P12345"
+        # The FULL 27-char InChIKey, not the 14-char connectivity layer:
+        # stereoisomers share inchikey14 and would collide on one work_dir.
+        assert j.pair_id == "ABCDEFGHIJKLMN-OPQRSTUVWX__P12345"
         assert Path(j.work_dir) == work_root / j.pair_id
+
+    def test_stereoisomers_get_distinct_work_dirs(self, tmp_path: Path):
+        """Two stereoisomers share inchikey14; they must not share a work_dir."""
+        rows = [
+            {
+                "inchikey": f"ABCDEFGHIJKLMN-{suffix}",
+                "inchikey14": "ABCDEFGHIJKLMN",
+                "receptor_uniprot": "P12345",
+                "canonical_smiles_std": smiles,
+            }
+            for suffix, smiles in (
+                ("QFIPXVFZSA-N", "C[C@H](N)CO"),
+                ("IRJFHVNHSA-N", "C[C@@H](N)CO"),
+            )
+        ]
+        sites = [{
+            "uniprot": "P12345",
+            "center_x": 0.0, "center_y": 0.0, "center_z": 0.0,
+            "size_x": 22.0, "size_y": 22.0, "size_z": 22.0,
+            "confidence": "ok",
+        }]
+        u, s, r = self._write_dataset(
+            tmp_path, rows=rows, sites=sites, receptors_present={"P12345"}
+        )
+        jobs = build_job_list(
+            unified_csv=u, binding_sites_json=s, receptors_dir=r,
+            work_root=tmp_path / "work",
+        )
+        assert len(jobs) == 2
+        assert len({j.pair_id for j in jobs}) == 2
+        assert len({j.work_dir for j in jobs}) == 2
 
 
 @pytest.mark.unit
