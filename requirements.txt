@@ -41,10 +41,12 @@ ruff>=0.13.2
 # boruta>=0.3.0
 # optuna>=3.5.0
 
-# Optional dev tools (install with: pip install -e .[dev])
+# Dev tools live in the `dev` dependency group of pyproject.toml.
+# `uv sync` installs them by default; with pip >= 25.1: pip install --group dev
 # pytest>=7.4.0
 # pytest-cov>=4.1.0
 # pytest-mock>=3.12.0
+# pytest-timeout>=2.3.0
 # pylint>=3.0.0
 # mypy>=1.8.0
 # bandit>=1.7.0
