@@ -295,7 +295,7 @@ def define_all_binding_sites(
         chosen[uniprot] = (selected_pdb, biasdb_name)
 
     results: list[BindingSite] = []
-    for prepared in sorted(receptors_dir.glob("*.pdb")):
+    for prepared in prepared_receptor_pdbs(receptors_dir):
         uniprot = prepared.stem
         selected_pdb, biasdb_name = chosen.get(uniprot, ("", ""))
         # Determine the raw-PDB source (where the co-crystal ligand may live).
@@ -331,26 +331,73 @@ def define_all_binding_sites(
             "box_size_angstrom": box_size_angstrom,
             "agreement_threshold_angstroms": agreement_threshold_angstroms,
         },
-        "totals": {
-            "receptors": len(results),
-            "by_method": _count(results, "method"),
-            "by_confidence": _count(results, "confidence"),
-        },
         "binding_sites": [asdict(b) for b in results],
     }
+    return write_binding_sites(payload, output_path, audit_path=audit_path)
+
+
+# Files that sit next to prepared receptors but are not receptors themselves
+# (protonated copies written for ProLIF). Globbing "*.pdb" picks them up and
+# would define a second box for every receptor under a bogus UniProt stem.
+DERIVED_RECEPTOR_SUFFIXES = (".prolif_H.pdb",)
+
+
+def prepared_receptor_pdbs(receptors_dir: Path | str) -> list[Path]:
+    """Prepared receptor PDBs (``<UNIPROT>.pdb``), derived copies excluded."""
+    return sorted(
+        p for p in Path(receptors_dir).glob("*.pdb")
+        if not p.name.endswith(DERIVED_RECEPTOR_SUFFIXES)
+    )
+
+
+def binding_site_totals(sites: list[dict]) -> dict:
+    """Summary counts derived from the per-receptor records."""
+    def count(key: str) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for s in sites:
+            v = s.get(key)
+            out[v] = out.get(v, 0) + 1
+        return dict(sorted(out.items(), key=lambda kv: str(kv[0])))
+    return {
+        "receptors": len(sites),
+        "by_method": count("method"),
+        "by_confidence": count("confidence"),
+    }
+
+
+def write_binding_sites(
+    payload: dict, output_path: Path | str, *,
+    audit_path: Path | str | None = None,
+) -> dict:
+    """Write ``binding_sites.json`` with ``totals`` recomputed from the records.
+
+    Every writer goes through here so the summary block cannot drift from the
+    records. It did once: a repair of seven receptors rewrote their records
+    but kept the old totals (55/4/2 by method, 2 low-confidence, against
+    53/3/5 and 5 in the records).
+    """
+    payload = {**payload, "totals": binding_site_totals(payload["binding_sites"])}
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_text(json.dumps(payload, indent=2, sort_keys=True))
-
-    _emit_audit(payload, Path(audit_path))
+    if audit_path is not None:
+        _emit_audit(payload, Path(audit_path))
     return payload
 
 
-def _count(results: list[BindingSite], attr: str) -> dict[str, int]:
-    out: dict[str, int] = {}
-    for r in results:
-        v = getattr(r, attr)
-        out[v] = out.get(v, 0) + 1
-    return out
+def recompute_binding_site_totals(
+    path: Path | str = "data/processed/binding_sites.json", *,
+    audit_path: Path | str | None = None, backup_suffix: str | None = None,
+) -> dict:
+    """Re-derive ``totals`` in an existing file; all other keys are kept."""
+    import shutil
+
+    path = Path(path)
+    if backup_suffix:
+        backup = path.with_name(path.name + backup_suffix)
+        if not backup.exists():
+            shutil.copy2(path, backup)
+    payload = json.loads(path.read_text())
+    return write_binding_sites(payload, path, audit_path=audit_path)
 
 
 def _emit_audit(payload: dict, out_path: Path) -> None:
@@ -390,8 +437,32 @@ def _emit_audit(payload: dict, out_path: Path) -> None:
     out_path.write_text("\n".join(md))
 
 
-if __name__ == "__main__":
+def main(argv: list[str] | None = None) -> None:
+    """``python -m cancerag.preprocessing.binding_site`` defines every box;
+    ``... recompute-totals [--path P] [--audit A] [--backup-suffix S]`` only
+    re-derives the summary block of an existing file."""
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Stage 04 binding-site definition")
+    sub = ap.add_subparsers(dest="cmd")
+    rt = sub.add_parser("recompute-totals",
+                        help="re-derive totals from the records of an existing file")
+    rt.add_argument("--path", default="data/processed/binding_sites.json")
+    rt.add_argument("--audit", default=None,
+                    help="also regenerate this audit markdown from the file")
+    rt.add_argument("--backup-suffix", default=None)
+    args = ap.parse_args(argv)
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
     )
-    define_all_binding_sites()
+    if args.cmd == "recompute-totals":
+        out = recompute_binding_site_totals(
+            args.path, audit_path=args.audit, backup_suffix=args.backup_suffix,
+        )
+        print(json.dumps(out["totals"], indent=2))
+    else:
+        define_all_binding_sites()
+
+
+if __name__ == "__main__":
+    main()

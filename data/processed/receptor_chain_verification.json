@@ -1,0 +1,1124 @@
+{
+  "below_gate": [],
+  "canonical_source": "https://rest.uniprot.org/uniprotkb/{acc}.fasta",
+  "coverage": {
+    "max": 1.0,
+    "median": 1.0,
+    "min": 0.5631
+  },
+  "failures": [],
+  "gate": {
+    "alignment": "Bio.Align.PairwiseAligner global, free end gaps, match +2, mismatch -1, gap open -10, extend -0.5",
+    "coverage": "aligned residue pairs / residues in the prepared chain",
+    "function": "cancerag.preprocessing.receptor_preprocessor.verify_chain_identity",
+    "identity": "matches / aligned residue pairs",
+    "min_coverage": 0.3,
+    "min_identity": 0.55
+  },
+  "generated_at_utc": "2026-10-18T23:00:11.543196+00:00",
+  "generator": "python -m cancerag.preprocessing.chain_verification",
+  "identity": {
+    "max": 1.0,
+    "median": 0.9965,
+    "min": 0.6364
+  },
+  "n_below_gate": 0,
+  "n_prepared_receptors": 61,
+  "n_verified": 61,
+  "n_with_sidecar": 54,
+  "n_without_sidecar": 7,
+  "receptors": [
+    {
+      "canonical_length": 300,
+      "chain_coverage": 0.6293,
+      "chain_identity_to_uniprot": 0.9782,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 437,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/O14842.pdb",
+      "sidecar": "data/processed/receptors/O14842.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "O14842",
+      "uniprot_header": "sp|O14842|FFAR1_HUMAN Free fatty acid receptor 1 OS=Homo sapiens OX=9606 GN=FFAR1 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 330,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 258,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/O15552.pdb",
+      "sidecar": null,
+      "sidecar_missing_reason": "receptor replaced by the chain repair (chosen PDB 8T3S, chain R); the repair wrote the PDB without a prep sidecar",
+      "uniprot": "O15552",
+      "uniprot_header": "sp|O15552|FFAR2_HUMAN Free fatty acid receptor 2 OS=Homo sapiens OX=9606 GN=FFAR2 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 413,
+      "chain_coverage": 0.7111,
+      "chain_identity_to_uniprot": 0.9143,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 443,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P07550.pdb",
+      "sidecar": "data/processed/receptors/P07550.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P07550",
+      "uniprot_header": "sp|P07550|ADRB2_HUMAN Beta-2 adrenergic receptor OS=Homo sapiens OX=9606 GN=ADRB2 PE=1 SV=3",
+      "uniprot_sequence_version": 3,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 466,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 0.7578,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 384,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P08172.pdb",
+      "sidecar": "data/processed/receptors/P08172.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P08172",
+      "uniprot_header": "sp|P08172|ACM2_HUMAN Muscarinic acetylcholine receptor M2 OS=Homo sapiens OX=9606 GN=CHRM2 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 477,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 0.9754,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 285,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P08588.pdb",
+      "sidecar": "data/processed/receptors/P08588.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P08588",
+      "uniprot_header": "sp|P08588|ADRB1_HUMAN Beta-1 adrenergic receptor OS=Homo sapiens OX=9606 GN=ADRB1 PE=1 SV=3",
+      "uniprot_sequence_version": 3,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 422,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 0.9965,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 286,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P08908.pdb",
+      "sidecar": "data/processed/receptors/P08908.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P08908",
+      "uniprot_header": "sp|P08908|5HT1A_HUMAN 5-hydroxytryptamine receptor 1A OS=Homo sapiens OX=9606 GN=HTR1A PE=1 SV=3",
+      "uniprot_sequence_version": 3,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 465,
+      "chain_coverage": 0.9973,
+      "chain_identity_to_uniprot": 0.7513,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 375,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P08913.pdb",
+      "sidecar": "data/processed/receptors/P08913.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P08913",
+      "uniprot_header": "sp|P08913|ADA2A_HUMAN Alpha-2A adrenergic receptor OS=Homo sapiens OX=9606 GN=ADRA2A PE=1 SV=4",
+      "uniprot_sequence_version": 4,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 318,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 282,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P0DMS8.pdb",
+      "sidecar": "data/processed/receptors/P0DMS8.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P0DMS8",
+      "uniprot_header": "sp|P0DMS8|AA3R_HUMAN Adenosine receptor A3 OS=Homo sapiens OX=9606 GN=ADORA3 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 460,
+      "chain_coverage": 0.9372,
+      "chain_identity_to_uniprot": 0.6364,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 446,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P11229.pdb",
+      "sidecar": "data/processed/receptors/P11229.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P11229",
+      "uniprot_header": "sp|P11229|ACM1_HUMAN Muscarinic acetylcholine receptor M1 OS=Homo sapiens OX=9606 GN=CHRM1 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 443,
+      "chain_coverage": 0.9409,
+      "chain_identity_to_uniprot": 0.7035,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 423,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P14416.pdb",
+      "sidecar": "data/processed/receptors/P14416.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P14416",
+      "uniprot_header": "sp|P14416|DRD2_HUMAN Dopamine receptor D2 OS=Homo sapiens OX=9606 GN=DRD2 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 462,
+      "chain_coverage": 0.8608,
+      "chain_identity_to_uniprot": 0.7353,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 474,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P18825.pdb",
+      "sidecar": "data/processed/receptors/P18825.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P18825",
+      "uniprot_header": "sp|P18825|ADA2C_HUMAN Alpha-2C adrenergic receptor OS=Homo sapiens OX=9606 GN=ADRA2C PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 590,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 285,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P20309.pdb",
+      "sidecar": "data/processed/receptors/P20309.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P20309",
+      "uniprot_header": "sp|P20309|ACM3_HUMAN Muscarinic acetylcholine receptor M3 OS=Homo sapiens OX=9606 GN=CHRM3 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 398,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "B"
+      ],
+      "n_chain_residues": 272,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P21452.pdb",
+      "sidecar": null,
+      "sidecar_missing_reason": "receptor replaced by the chain repair (chosen PDB 7XWO, chain B); the repair wrote the PDB without a prep sidecar",
+      "uniprot": "P21452",
+      "uniprot_header": "sp|P21452|NK2R_HUMAN Substance-K receptor OS=Homo sapiens OX=9606 GN=TACR2 PE=1 SV=3",
+      "uniprot_sequence_version": 3,
+      "verified_chain": "B"
+    },
+    {
+      "canonical_length": 382,
+      "chain_coverage": 0.6747,
+      "chain_identity_to_uniprot": 0.9446,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 455,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P21453.pdb",
+      "sidecar": "data/processed/receptors/P21453.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P21453",
+      "uniprot_header": "sp|P21453|S1PR1_HUMAN Sphingosine 1-phosphate receptor 1 OS=Homo sapiens OX=9606 GN=S1PR1 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 350,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 295,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P21462.pdb",
+      "sidecar": null,
+      "sidecar_missing_reason": "receptor replaced by the chain repair (chosen PDB 7EUO, chain R); the repair wrote the PDB without a prep sidecar",
+      "uniprot": "P21462",
+      "uniprot_header": "sp|P21462|FPR1_HUMAN N-formyl peptide receptor 1 OS=Homo sapiens OX=9606 GN=FPR1 PE=1 SV=3",
+      "uniprot_sequence_version": 3,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 472,
+      "chain_coverage": 0.6548,
+      "chain_identity_to_uniprot": 0.9169,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 478,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P21554.pdb",
+      "sidecar": "data/processed/receptors/P21554.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P21554",
+      "uniprot_header": "sp|P21554|CNR1_HUMAN Cannabinoid receptor 1 OS=Homo sapiens OX=9606 GN=CNR1 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 446,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "F"
+      ],
+      "n_chain_residues": 282,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P21728.pdb",
+      "sidecar": "data/processed/receptors/P21728.pdb.prep.meta.json",
+      "sidecar_kept_chain": "F",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P21728",
+      "uniprot_header": "sp|P21728|DRD1_HUMAN Dopamine receptor D1 OS=Homo sapiens OX=9606 GN=DRD1 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "F"
+    },
+    {
+      "canonical_length": 350,
+      "chain_coverage": 0.8595,
+      "chain_identity_to_uniprot": 0.9182,
+      "chains_in_file": [
+        "B"
+      ],
+      "n_chain_residues": 370,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P21730.pdb",
+      "sidecar": "data/processed/receptors/P21730.pdb.prep.meta.json",
+      "sidecar_kept_chain": "B",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P21730",
+      "uniprot_header": "sp|P21730|C5AR1_HUMAN C5a anaphylatoxin chemotactic receptor 1 OS=Homo sapiens OX=9606 GN=C5AR1 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "B"
+    },
+    {
+      "canonical_length": 419,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 0.756,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 373,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P21917.pdb",
+      "sidecar": "data/processed/receptors/P21917.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P21917",
+      "uniprot_header": "sp|P21917|DRD4_HUMAN Dopamine receptor D4 OS=Homo sapiens OX=9606 GN=DRD4 PE=1 SV=3",
+      "uniprot_sequence_version": 3,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 699,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 0.9982,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 550,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P22888.pdb",
+      "sidecar": "data/processed/receptors/P22888.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P22888",
+      "uniprot_header": "sp|P22888|LSHR_HUMAN Lutropin-choriogonadotropic hormone receptor OS=Homo sapiens OX=9606 GN=LHCGR PE=1 SV=4",
+      "uniprot_sequence_version": 4,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 359,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 278,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P25021.pdb",
+      "sidecar": "data/processed/receptors/P25021.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P25021",
+      "uniprot_header": "sp|P25021|HRH2_HUMAN Histamine H2 receptor OS=Homo sapiens OX=9606 GN=HRH2 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 360,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 298,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P25025.pdb",
+      "sidecar": "data/processed/receptors/P25025.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P25025",
+      "uniprot_header": "sp|P25025|CXCR2_HUMAN C-X-C chemokine receptor type 2 OS=Homo sapiens OX=9606 GN=CXCR2 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 351,
+      "chain_coverage": 0.7541,
+      "chain_identity_to_uniprot": 0.9907,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 427,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P25090.pdb",
+      "sidecar": "data/processed/receptors/P25090.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P25090",
+      "uniprot_header": "sp|P25090|FPR2_HUMAN N-formyl peptide receptor 2 OS=Homo sapiens OX=9606 GN=FPR2 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 390,
+      "chain_coverage": 0.8945,
+      "chain_identity_to_uniprot": 0.8407,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 379,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P28222.pdb",
+      "sidecar": "data/processed/receptors/P28222.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P28222",
+      "uniprot_header": "sp|P28222|5HT1B_HUMAN 5-hydroxytryptamine receptor 1B OS=Homo sapiens OX=9606 GN=HTR1B PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 458,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 264,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P28335.pdb",
+      "sidecar": "data/processed/receptors/P28335.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P28335",
+      "uniprot_header": "sp|P28335|5HT2C_HUMAN 5-hydroxytryptamine receptor 2C OS=Homo sapiens OX=9606 GN=HTR2C PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 332,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 286,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P29275.pdb",
+      "sidecar": "data/processed/receptors/P29275.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P29275",
+      "uniprot_header": "sp|P29275|AA2BR_HUMAN Adenosine receptor A2b OS=Homo sapiens OX=9606 GN=ADORA2B PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 371,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 278,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P30518.pdb",
+      "sidecar": null,
+      "sidecar_missing_reason": "receptor replaced by the chain repair (chosen PDB 7DW9, chain R); the repair wrote the PDB without a prep sidecar",
+      "uniprot": "P30518",
+      "uniprot_header": "sp|P30518|V2R_HUMAN Vasopressin V2 receptor OS=Homo sapiens OX=9606 GN=AVPR2 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 326,
+      "chain_coverage": 0.7441,
+      "chain_identity_to_uniprot": 0.9579,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 383,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P30542.pdb",
+      "sidecar": "data/processed/receptors/P30542.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P30542",
+      "uniprot_header": "sp|P30542|AA1R_HUMAN Adenosine receptor A1 OS=Homo sapiens OX=9606 GN=ADORA1 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 359,
+      "chain_coverage": 0.7234,
+      "chain_identity_to_uniprot": 0.9963,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 376,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P30556.pdb",
+      "sidecar": "data/processed/receptors/P30556.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P30556",
+      "uniprot_header": "sp|P30556|AGTR1_HUMAN Type-1 angiotensin II receptor OS=Homo sapiens OX=9606 GN=AGTR1 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 418,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 0.9059,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 287,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P30989.pdb",
+      "sidecar": "data/processed/receptors/P30989.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P30989",
+      "uniprot_header": "sp|P30989|NTR1_HUMAN Neurotensin receptor type 1 OS=Homo sapiens OX=9606 GN=NTSR1 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 332,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 259,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P32245.pdb",
+      "sidecar": "data/processed/receptors/P32245.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P32245",
+      "uniprot_header": "sp|P32245|MC4R_HUMAN Melanocortin receptor 4 OS=Homo sapiens OX=9606 GN=MC4R PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 325,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 270,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P33032.pdb",
+      "sidecar": "data/processed/receptors/P33032.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P33032",
+      "uniprot_header": "sp|P33032|MC5R_HUMAN Melanocortin receptor 5 OS=Homo sapiens OX=9606 GN=MC5R PE=1 SV=3",
+      "uniprot_sequence_version": 3,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 479,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 275,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P34969.pdb",
+      "sidecar": "data/processed/receptors/P34969.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P34969",
+      "uniprot_header": "sp|P34969|5HT7R_HUMAN 5-hydroxytryptamine receptor 7 OS=Homo sapiens OX=9606 GN=HTR7 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 360,
+      "chain_coverage": 0.6704,
+      "chain_identity_to_uniprot": 0.9435,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 449,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P34972.pdb",
+      "sidecar": "data/processed/receptors/P34972.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P34972",
+      "uniprot_header": "sp|P34972|CNR2_HUMAN Cannabinoid receptor 2 OS=Homo sapiens OX=9606 GN=CNR2 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 466,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 271,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P35348.pdb",
+      "sidecar": "data/processed/receptors/P35348.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P35348",
+      "uniprot_header": "sp|P35348|ADA1A_HUMAN Alpha-1A adrenergic receptor OS=Homo sapiens OX=9606 GN=ADRA1A PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 400,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 287,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P35372.pdb",
+      "sidecar": "data/processed/receptors/P35372.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P35372",
+      "uniprot_header": "sp|P35372|OPRM_HUMAN Mu-type opioid receptor OS=Homo sapiens OX=9606 GN=OPRM1 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 380,
+      "chain_coverage": 0.8818,
+      "chain_identity_to_uniprot": 0.9216,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 347,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P35414.pdb",
+      "sidecar": "data/processed/receptors/P35414.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P35414",
+      "uniprot_header": "sp|P35414|APJ_HUMAN Apelin receptor OS=Homo sapiens OX=9606 GN=APLNR PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 400,
+      "chain_coverage": 0.8542,
+      "chain_identity_to_uniprot": 0.7724,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 432,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P35462.pdb",
+      "sidecar": "data/processed/receptors/P35462.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P35462",
+      "uniprot_header": "sp|P35462|DRD3_HUMAN Dopamine receptor D3 OS=Homo sapiens OX=9606 GN=DRD3 PE=1 SV=3",
+      "uniprot_sequence_version": 3,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 372,
+      "chain_coverage": 0.7794,
+      "chain_identity_to_uniprot": 0.9591,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 408,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P41143.pdb",
+      "sidecar": "data/processed/receptors/P41143.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P41143",
+      "uniprot_header": "sp|P41143|OPRD_HUMAN Delta-type opioid receptor OS=Homo sapiens OX=9606 GN=OPRD1 PE=1 SV=4",
+      "uniprot_sequence_version": 4,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 380,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 0.9964,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 280,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P41145.pdb",
+      "sidecar": null,
+      "sidecar_missing_reason": "receptor replaced by the chain repair (chosen PDB 8DZP, chain A); the repair wrote the PDB without a prep sidecar",
+      "uniprot": "P41145",
+      "uniprot_header": "sp|P41145|OPRK_HUMAN Kappa-type opioid receptor OS=Homo sapiens OX=9606 GN=OPRK1 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 370,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 281,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P41146.pdb",
+      "sidecar": "data/processed/receptors/P41146.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P41146",
+      "uniprot_header": "sp|P41146|OPRX_HUMAN Nociceptin receptor OS=Homo sapiens OX=9606 GN=OPRL1 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 1078,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 485,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P41180.pdb",
+      "sidecar": "data/processed/receptors/P41180.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P41180",
+      "uniprot_header": "sp|P41180|CASR_HUMAN Extracellular calcium-sensing receptor OS=Homo sapiens OX=9606 GN=CASR PE=1 SV=3",
+      "uniprot_sequence_version": 3,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 481,
+      "chain_coverage": 0.9333,
+      "chain_identity_to_uniprot": 0.8343,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 375,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P41595.pdb",
+      "sidecar": "data/processed/receptors/P41595.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P41595",
+      "uniprot_header": "sp|P41595|5HT2B_HUMAN 5-hydroxytryptamine receptor 2B OS=Homo sapiens OX=9606 GN=HTR2B PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 374,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 0.9661,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 295,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P41597.pdb",
+      "sidecar": null,
+      "sidecar_missing_reason": "receptor replaced by the chain repair (chosen PDB 7XA3, chain R); the repair wrote the PDB without a prep sidecar",
+      "uniprot": "P41597",
+      "uniprot_header": "sp|P41597|CCR2_HUMAN C-C chemokine receptor type 2 OS=Homo sapiens OX=9606 GN=CCR2 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 323,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 258,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P41968.pdb",
+      "sidecar": "data/processed/receptors/P41968.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P41968",
+      "uniprot_header": "sp|P41968|MC3R_HUMAN Melanocortin receptor 3 OS=Homo sapiens OX=9606 GN=MC3R PE=1 SV=3",
+      "uniprot_sequence_version": 3,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 358,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 266,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P43116.pdb",
+      "sidecar": "data/processed/receptors/P43116.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P43116",
+      "uniprot_header": "sp|P43116|PE2R2_HUMAN Prostaglandin E2 receptor EP2 subtype OS=Homo sapiens OX=9606 GN=PTGER2 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 368,
+      "chain_coverage": 0.9719,
+      "chain_identity_to_uniprot": 0.9603,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 285,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P49682.pdb",
+      "sidecar": "data/processed/receptors/P49682.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P49682",
+      "uniprot_header": "sp|P49682|CXCR3_HUMAN C-X-C chemokine receptor type 3 OS=Homo sapiens OX=9606 GN=CXCR3 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 352,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "C"
+      ],
+      "n_chain_residues": 300,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P51681.pdb",
+      "sidecar": null,
+      "sidecar_missing_reason": "receptor replaced by the chain repair (chosen PDB 7O7F, chain C); the repair wrote the PDB without a prep sidecar",
+      "uniprot": "P51681",
+      "uniprot_header": "sp|P51681|CCR5_HUMAN C-C chemokine receptor type 5 OS=Homo sapiens OX=9606 GN=CCR5 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "C"
+    },
+    {
+      "canonical_length": 397,
+      "chain_coverage": 0.6155,
+      "chain_identity_to_uniprot": 0.8453,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 567,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P55085.pdb",
+      "sidecar": "data/processed/receptors/P55085.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P55085",
+      "uniprot_header": "sp|P55085|PAR2_HUMAN Proteinase-activated receptor 2 OS=Homo sapiens OX=9606 GN=F2RL1 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 352,
+      "chain_coverage": 0.6481,
+      "chain_identity_to_uniprot": 0.9702,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 466,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/P61073.pdb",
+      "sidecar": "data/processed/receptors/P61073.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "P61073",
+      "uniprot_header": "sp|P61073|CXCR4_HUMAN C-X-C chemokine receptor type 4 OS=Homo sapiens OX=9606 GN=CXCR4 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 317,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 269,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/Q01726.pdb",
+      "sidecar": "data/processed/receptors/Q01726.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "Q01726",
+      "uniprot_header": "sp|Q01726|MSHR_HUMAN Melanocyte-stimulating hormone receptor OS=Homo sapiens OX=9606 GN=MC1R PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 363,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 0.9966,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 295,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/Q8TDS4.pdb",
+      "sidecar": "data/processed/receptors/Q8TDS4.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "Q8TDS4",
+      "uniprot_header": "sp|Q8TDS4|HCAR2_HUMAN Hydroxycarboxylic acid receptor 2 OS=Homo sapiens OX=9606 GN=HCAR2 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 364,
+      "chain_coverage": 0.7984,
+      "chain_identity_to_uniprot": 0.9508,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 382,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/Q92633.pdb",
+      "sidecar": "data/processed/receptors/Q92633.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "Q92633",
+      "uniprot_header": "sp|Q92633|LPAR1_HUMAN Lysophosphatidic acid receptor 1 OS=Homo sapiens OX=9606 GN=LPAR1 PE=1 SV=3",
+      "uniprot_sequence_version": 3,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 366,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 285,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/Q92847.pdb",
+      "sidecar": "data/processed/receptors/Q92847.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "Q92847",
+      "uniprot_header": "sp|Q92847|GHSR_HUMAN Growth hormone secretagogue receptor type 1 OS=Homo sapiens OX=9606 GN=GHSR PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 330,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 257,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/Q96LB1.pdb",
+      "sidecar": "data/processed/receptors/Q96LB1.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "Q96LB1",
+      "uniprot_header": "sp|Q96LB1|MRGX2_HUMAN Mas-related G protein-coupled receptor member X2 OS=Homo sapiens OX=9606 GN=MRGPRX2 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 390,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 261,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/Q9H3N8.pdb",
+      "sidecar": "data/processed/receptors/Q9H3N8.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "Q9H3N8",
+      "uniprot_header": "sp|Q9H3N8|HRH4_HUMAN Histamine H4 receptor OS=Homo sapiens OX=9606 GN=HRH4 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 757,
+      "chain_coverage": 0.5631,
+      "chain_identity_to_uniprot": 0.9822,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 499,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/Q9HBX9.pdb",
+      "sidecar": "data/processed/receptors/Q9HBX9.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "Q9HBX9",
+      "uniprot_header": "sp|Q9HBX9|RXFP1_HUMAN Relaxin receptor 1 OS=Homo sapiens OX=9606 GN=RXFP1 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 309,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "C"
+      ],
+      "n_chain_residues": 283,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/Q9HC97.pdb",
+      "sidecar": "data/processed/receptors/Q9HC97.pdb.prep.meta.json",
+      "sidecar_kept_chain": "C",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "Q9HC97",
+      "uniprot_header": "sp|Q9HC97|GPR35_HUMAN G protein-coupled receptor 35 OS=Homo sapiens OX=9606 GN=GPR35 PE=1 SV=4",
+      "uniprot_sequence_version": 4,
+      "verified_chain": "C"
+    },
+    {
+      "canonical_length": 396,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 1.0,
+      "chains_in_file": [
+        "R"
+      ],
+      "n_chain_residues": 291,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/Q9NQS5.pdb",
+      "sidecar": "data/processed/receptors/Q9NQS5.pdb.prep.meta.json",
+      "sidecar_kept_chain": "R",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "Q9NQS5",
+      "uniprot_header": "sp|Q9NQS5|GPR84_HUMAN G protein-coupled receptor 84 OS=Homo sapiens OX=9606 GN=GPR84 PE=1 SV=1",
+      "uniprot_sequence_version": 1,
+      "verified_chain": "R"
+    },
+    {
+      "canonical_length": 445,
+      "chain_coverage": 1.0,
+      "chain_identity_to_uniprot": 0.9967,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 301,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/Q9Y5N1.pdb",
+      "sidecar": "data/processed/receptors/Q9Y5N1.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "Q9Y5N1",
+      "uniprot_header": "sp|Q9Y5N1|HRH3_HUMAN Histamine H3 receptor OS=Homo sapiens OX=9606 GN=HRH3 PE=1 SV=2",
+      "uniprot_sequence_version": 2,
+      "verified_chain": "A"
+    },
+    {
+      "canonical_length": 395,
+      "chain_coverage": 0.75,
+      "chain_identity_to_uniprot": 0.9908,
+      "chains_in_file": [
+        "A"
+      ],
+      "n_chain_residues": 436,
+      "passes_gate": true,
+      "pdb": "data/processed/receptors/Q9Y5Y4.pdb",
+      "sidecar": "data/processed/receptors/Q9Y5Y4.pdb.prep.meta.json",
+      "sidecar_kept_chain": "A",
+      "sidecar_output_sha_matches_file": true,
+      "uniprot": "Q9Y5Y4",
+      "uniprot_header": "sp|Q9Y5Y4|PD2R2_HUMAN Prostaglandin D2 receptor 2 OS=Homo sapiens OX=9606 GN=PTGDR2 PE=1 SV=3",
+      "uniprot_sequence_version": 3,
+      "verified_chain": "A"
+    }
+  ],
+  "schema_version": 1
+}
