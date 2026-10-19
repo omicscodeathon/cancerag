@@ -8,9 +8,13 @@ Covers:
 - BorutaSelector.transform tolerates columns missing at predict time.
 - BorutaSelector raises a helpful error if its input contains NaNs.
 - stability_selection returns frequencies in [0, 1].
+- selector-ablation artefacts are not older than the matrix they describe.
 """
 
 from __future__ import annotations
+
+import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -18,7 +22,12 @@ import pytest
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 
-from cancerag.ml.feature_selection import BorutaSelector, stability_selection
+from cancerag.ml.feature_selection import (
+    SELECTOR_ABLATION_ARTEFACTS,
+    BorutaSelector,
+    stability_selection,
+    stale_selector_ablation_artefacts,
+)
 from cancerag.ml.preprocessing import CorrelationFilter
 
 
@@ -113,3 +122,84 @@ class TestStabilitySelection:
         freq = stability_selection(df, [], lambda: BorutaSelector(max_iter=1),
                                    n_boot=2)
         assert (freq == 0.0).all()
+
+
+@pytest.mark.unit
+class TestSelectorAblationFreshness:
+    """The ablation artefact must not outlive the matrix it describes.
+
+    HAL-3613: the committed artefact was produced on 2026-05-03, against a
+    feature matrix that still carried the leaked per-receptor QC columns, and
+    was still being cited for Figure 2 after the matrix was rebuilt in August.
+    Nothing on disk said so.
+    """
+
+    @staticmethod
+    def _write(path, mtime):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("selector,model,mean\n")
+        os.utime(path, (mtime, mtime))
+
+    def test_artefact_older_than_dataset_is_stale(self, tmp_path):
+        dataset = tmp_path / "ml_ready_dataset.parquet"
+        out = tmp_path / "selector_ablation"
+        self._write(dataset, 2_000.0)
+        for name in SELECTOR_ABLATION_ARTEFACTS:
+            self._write(out / name, 1_000.0)
+
+        stale = stale_selector_ablation_artefacts(
+            dataset_path=dataset, output_dir=out,
+        )
+        assert sorted(stale) == sorted(SELECTOR_ABLATION_ARTEFACTS)
+
+    def test_artefact_newer_than_dataset_is_fresh(self, tmp_path):
+        dataset = tmp_path / "ml_ready_dataset.parquet"
+        out = tmp_path / "selector_ablation"
+        self._write(dataset, 1_000.0)
+        for name in SELECTOR_ABLATION_ARTEFACTS:
+            self._write(out / name, 2_000.0)
+
+        assert stale_selector_ablation_artefacts(
+            dataset_path=dataset, output_dir=out,
+        ) == []
+
+    def test_reports_only_the_stale_ones(self, tmp_path):
+        dataset = tmp_path / "ml_ready_dataset.parquet"
+        out = tmp_path / "selector_ablation"
+        self._write(dataset, 2_000.0)
+        self._write(out / "selector_ablation_long.csv", 1_000.0)
+        self._write(out / "selector_ablation_matrix.csv", 3_000.0)
+        self._write(out / "selector_ablation_summary.csv", 3_000.0)
+
+        assert stale_selector_ablation_artefacts(
+            dataset_path=dataset, output_dir=out,
+        ) == ["selector_ablation_long.csv"]
+
+    def test_missing_inputs_are_not_reported_as_stale(self, tmp_path):
+        # No dataset: nothing to compare against.
+        assert stale_selector_ablation_artefacts(
+            dataset_path=tmp_path / "absent.parquet",
+            output_dir=tmp_path / "selector_ablation",
+        ) == []
+        # Dataset but no artefacts: absence is not staleness.
+        dataset = tmp_path / "ml_ready_dataset.parquet"
+        self._write(dataset, 2_000.0)
+        assert stale_selector_ablation_artefacts(
+            dataset_path=dataset, output_dir=tmp_path / "selector_ablation",
+        ) == []
+
+    def test_repository_artefacts_are_not_stale(self):
+        """Guards the real artefact when the gitignored data is present."""
+        dataset = Path("data/processed/ml_ready_dataset.parquet")
+        out = Path("data/processed/ml_models/selector_ablation")
+        if not dataset.exists() or not any(
+            (out / n).exists() for n in SELECTOR_ABLATION_ARTEFACTS
+        ):
+            pytest.skip("gitignored ML data not present in this checkout")
+        stale = stale_selector_ablation_artefacts(
+            dataset_path=dataset, output_dir=out,
+        )
+        assert stale == [], (
+            f"selector-ablation artefacts predate {dataset}: {stale}. "
+            "Re-run cancerag.ml.feature_selection.run_selector_ablation."
+        )

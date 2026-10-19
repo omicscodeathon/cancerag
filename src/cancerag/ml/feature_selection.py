@@ -386,6 +386,44 @@ def run_selector_ablation(
     return abl
 
 
+SELECTOR_ABLATION_ARTEFACTS: tuple[str, ...] = (
+    "selector_ablation_long.csv",
+    "selector_ablation_matrix.csv",
+    "selector_ablation_summary.csv",
+)
+
+
+def stale_selector_ablation_artefacts(
+    *,
+    dataset_path: Path | str = "data/processed/ml_ready_dataset.parquet",
+    output_dir: Path | str = "data/processed/ml_models/selector_ablation",
+) -> list[str]:
+    """Names of selector-ablation artefacts older than the matrix they describe.
+
+    The ablation's numbers are only about the feature matrix that produced
+    them. When ``ml_ready_dataset.parquet`` is rebuilt — as it was by the
+    2026-08 QC-leakage fix — any artefact left behind from before that
+    rebuild silently describes a matrix that no longer exists, while still
+    reading as a current result to anyone citing it.
+
+    Returns the basenames of stale artefacts, newest-wins; empty when every
+    artefact postdates the dataset. A missing dataset or a missing artefact is
+    not reported here: this answers "is what is on disk consistent", not "is
+    everything present".
+    """
+    dataset_path = Path(dataset_path)
+    output_dir = Path(output_dir)
+    if not dataset_path.exists():
+        return []
+    dataset_mtime = dataset_path.stat().st_mtime
+    stale: list[str] = []
+    for name in SELECTOR_ABLATION_ARTEFACTS:
+        artefact = output_dir / name
+        if artefact.exists() and artefact.stat().st_mtime < dataset_mtime:
+            stale.append(name)
+    return stale
+
+
 def stability_selection(
     X: pd.DataFrame, y, selector_factory, *,
     n_boot: int = 30, sample_frac: float = 0.8, seed: int = 42,
