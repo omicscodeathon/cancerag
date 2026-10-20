@@ -125,3 +125,41 @@ class TestShippedRegistry:
         assert rows["P41145"]["selected_pdb"] != "7UL2", (
             "P41145 (kappa-opioid) is set to 7UL2, which is a neurotensin receptor"
         )
+
+
+class TestAlphaFoldFallbackIsOff:
+    """A missing crystal structure must not silently become a predicted model.
+
+    The fallback defaulted to True with no mention in config.yaml. On a clean
+    checkout data/pdb is empty (gitignored, 273 MB), so every receptor missed
+    and sixty AlphaFold models were downloaded and prepared instead — without
+    an error, and without matching the methods, which state that all receptors
+    came from the PDB. No released sidecar cites AlphaFold.
+    """
+
+    def test_config_declares_it_and_declares_it_off(self):
+        import yaml
+
+        cfg = yaml.safe_load(Path("configs/config.yaml").read_text())
+        assert "alphafold_fallback" in cfg["preprocessing"], (
+            "the key must be declared, not left to an invisible code default"
+        )
+        assert cfg["preprocessing"]["alphafold_fallback"] is False
+
+    def test_code_default_is_off_when_config_is_silent(self):
+        assert bool({}.get("alphafold_fallback", False)) is False
+
+    @pytest.mark.skipif(
+        not Path("data/processed/receptors").exists(), reason="no prepared receptors"
+    )
+    def test_no_released_receptor_came_from_alphafold(self):
+        import json
+
+        offenders = []
+        for sidecar in Path("data/processed/receptors").glob("*.prep.meta.json"):
+            src = str(json.loads(sidecar.read_text()).get("input_pdb", ""))
+            if "alphafold" in src.lower() or "/AF-" in src:
+                offenders.append(f"{sidecar.name} <- {src}")
+        assert not offenders, (
+            "receptors prepared from predicted models: " + "; ".join(offenders[:5])
+        )
