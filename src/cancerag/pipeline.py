@@ -250,11 +250,10 @@ def body_fetch_structures() -> None:
     restrict = None
     if unified.exists():
         restrict = set(pd.read_csv(unified)["receptor_uniprot"].dropna().unique())
-    retriever = receptor_retriever.ReceptorRetriever(
-        output_dir=DATA / "pdb",
-        max_pdbs_per_receptor=int(
-            cfg.get("data_collection", {}).get("max_pdb_files_per_receptor", 10)
-        ),
+    # from_config is the supported constructor; the direct __init__ needs a
+    # registry, and main.py:237 passes arguments the signature does not have.
+    retriever = receptor_retriever.ReceptorRetriever.from_config(
+        output_dir=DATA / "pdb", config=cfg,
     )
     retriever.run(restrict_to=restrict)
 
