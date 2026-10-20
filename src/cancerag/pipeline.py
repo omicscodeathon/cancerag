@@ -232,6 +232,61 @@ def body_curation() -> None:
     LigandPreprocessor(cfg).run()
 
 
+def body_fetch_structures() -> None:
+    """Download the crystal structures the receptor step prepares from.
+
+    Without this, `data/pdb` is empty on a fresh clone, `select_best_pdb` finds
+    nothing, and receptor preparation falls through to its AlphaFold fallback
+    for every receptor — silently, because the fallback is enabled by default.
+    The run completes and the structures are plausible, but they are predicted
+    models rather than the crystal structures the published pipeline used.
+    """
+    import pandas as pd
+    import yaml
+    from cancerag.data_collection import receptor_retriever
+
+    cfg = yaml.safe_load(Path("configs/config.yaml").read_text())
+    unified = PROC / "unified_ligands.csv"
+    restrict = None
+    if unified.exists():
+        restrict = set(pd.read_csv(unified)["receptor_uniprot"].dropna().unique())
+    retriever = receptor_retriever.ReceptorRetriever(
+        output_dir=DATA / "pdb",
+        max_pdbs_per_receptor=int(
+            cfg.get("data_collection", {}).get("max_pdb_files_per_receptor", 10)
+        ),
+    )
+    retriever.run(restrict_to=restrict)
+
+
+def probe_structures() -> dict:
+    pdb_dir = DATA / "pdb"
+    files = list(pdb_dir.rglob("*.pdb")) + list(pdb_dir.rglob("*.cif"))
+    return {"receptors_with_structures": len([d for d in pdb_dir.iterdir() if d.is_dir()]),
+            "structure_files": len(files)}
+
+
+def probe_receptor_sources() -> dict:
+    """Crystal structure or predicted model? The distinction the paper rests on."""
+    import json as _json
+
+    sidecars = list((PROC / "receptors").glob("*.prep.meta.json"))
+    sources = {"pdb": 0, "alphafold": 0, "unknown": 0}
+    for sc in sidecars:
+        try:
+            src = str(_json.loads(sc.read_text()).get("input_pdb", ""))
+        except Exception:  # noqa: BLE001
+            sources["unknown"] += 1
+            continue
+        if "alphafold" in src.lower() or "/AF-" in src:
+            sources["alphafold"] += 1
+        elif src:
+            sources["pdb"] += 1
+        else:
+            sources["unknown"] += 1
+    return {"prepared": len(sidecars), **{f"from_{k}": v for k, v in sources.items()}}
+
+
 def body_receptors() -> None:
     import yaml
     from cancerag.preprocessing import receptor_preprocessor
@@ -271,8 +326,12 @@ def build_specs() -> list[StepSpec]:
             body_curation, probe_curation,
         ),
         StepSpec(
+            "fetch_structures", "download crystal structures from the RCSB PDB",
+            [DATA / "pdb"], body_fetch_structures, probe_structures,
+        ),
+        StepSpec(
             "receptors", "PDB → prepared, chain-gated receptor structures",
-            [PROC / "receptors"], body_receptors, probe_receptors,
+            [PROC / "receptors"], body_receptors, probe_receptor_sources,
         ),
         StepSpec(
             "binding_sites", "cocrystal centroid, else P2Rank/fpocket consensus",
