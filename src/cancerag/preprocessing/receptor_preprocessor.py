@@ -99,6 +99,8 @@ class ReceptorPreprocessor:
             fetch_alphafold_pdb,
         )
         from cancerag.preprocessing.pdb_selector import (
+            apply_manual_overrides,
+            load_manual_overrides,
             select_best_pdb,
             write_preferred_tsv,
         )
@@ -342,8 +344,17 @@ class ReceptorPreprocessor:
                         "status": f"prep_failed: {e}",
                     })
 
-        # Emit preferred_pdbs.tsv
+        # Emit preferred_pdbs.tsv, preserving any hand-curated overrides. The
+        # seven chain-identity repairs live only in that column; re-scoring the
+        # cached structures would quietly undo them.
         preferred_path = Path("data/registry/preferred_pdbs.tsv")
+        overrides = load_manual_overrides(preferred_path)
+        rows, honoured = apply_manual_overrides(rows, overrides)
+        if honoured:
+            logger.info(
+                "Honoured %d manual PDB override(s): %s",
+                len(honoured), ", ".join(sorted(honoured)),
+            )
         write_preferred_tsv(rows, preferred_path)
         logger.info("Wrote %d preferred-PDB rows to %s", len(rows), preferred_path)
 
