@@ -56,7 +56,10 @@ install_fpocket() {
   mkdir -p "$TOOLS_DIR"
   git clone -q --depth 1 https://github.com/Discngine/fpocket.git "$src" \
     || die "could not clone fpocket"
-  ( cd "$src" && make -j"$(nproc)" >/tmp/fpocket_build.log 2>&1 ) \
+  # Serial on purpose: fpocket's makefile has an ordering bug in the bundled
+  # qhull and fails under -j with "Error 1" on qvoronoi.o. It takes a couple of
+  # minutes either way.
+  ( cd "$src" && make -j1 >/tmp/fpocket_build.log 2>&1 ) \
     || { tail -20 /tmp/fpocket_build.log >&2; die "fpocket build failed"; }
   # `make install` is unreliable here; the binaries land in bin/ either way.
   install -m0755 "$src"/bin/fpocket "$src"/bin/dpocket "$src"/bin/mdpocket \
@@ -90,27 +93,54 @@ WRAPPER
 }
 
 install_gnina() {
-  if command -v gnina >/dev/null 2>&1; then log "gnina present, skipping"; return; fi
+  if command -v gnina >/dev/null 2>&1 && gnina --version >/dev/null 2>&1; then
+    log "gnina present, skipping"; return
+  fi
   log "Gnina"
-  # The release binary is ~1.4 GB. If it was staged alongside this script
-  # (cheaper than re-downloading per VM), prefer that.
+  local bin="${TOOLS_DIR}/gnina.bin"
+  mkdir -p "$TOOLS_DIR"
+
   if [[ -n "${GNINA_STAGED:-}" && -f "${GNINA_STAGED}" ]]; then
-    install -m 0755 "${GNINA_STAGED}" /usr/local/bin/gnina
-    return
-  fi
-  local url=""
-  # Resolve the newest release asset actually named "gnina"; the /latest/download
-  # alias 404s because the asset name carries no fixed path.
-  url=$(curl -fsSL https://api.github.com/repos/gnina/gnina/releases/latest \
-        | grep -oE '"browser_download_url": *"[^"]*/gnina"' \
-        | head -1 | cut -d'"' -f4 || true)
-  if [[ -n "$url" ]] && curl -fsSL "$url" -o /usr/local/bin/gnina; then
-    chmod +x /usr/local/bin/gnina
+    install -m0755 "${GNINA_STAGED}" "$bin"
   else
-    warn "gnina download failed — the pipeline runs without it, but every"
-    warn "gnina_cnn_score comes back null and docking_confidence degrades to"
-    warn "the binding-site flag. Set GNINA_STAGED=/path/to/gnina and re-run."
+    # The release asset is named gnina.cuda12.8.static, so /latest/download
+    # (which needs a fixed filename) 404s; resolve it through the API.
+    local url
+    url=$(curl -fsSL https://api.github.com/repos/gnina/gnina/releases/latest \
+          | grep -oE '"browser_download_url": *"[^"]*gnina[^"]*"' \
+          | head -1 | cut -d'"' -f4 || true)
+    if [[ -z "$url" ]] || ! curl -fsSL "$url" -o "$bin"; then
+      warn "gnina download failed — the pipeline still runs, but every"
+      warn "gnina_cnn_score comes back null and docking_confidence falls back"
+      warn "to the binding-site flag, which changes the sample weights."
+      warn "Set GNINA_STAGED=/path/to/gnina and re-run to fix."
+      return
+    fi
+    chmod +x "$bin"
   fi
+
+  # Despite the "static" in its name the binary still links the CUDA 12 runtime
+  # and cuDNN 9, which Ubuntu does not ship. The pip nvidia-*-cu12 wheels carry
+  # exactly those sonames. nvtx is pinned because 12.9 renamed
+  # libnvToolsExt.so.1 to libnvtx3interop.so.1, which gnina does not look for.
+  # No GPU is needed — the libraries only have to be loadable.
+  local libs="${TOOLS_DIR}/gnina-libs"
+  if [[ ! -d "$libs/nvidia" ]]; then
+    log "  CUDA sonames for gnina"
+    uv pip install --quiet --target "$libs" \
+      nvidia-cudnn-cu12 nvidia-cublas-cu12 nvidia-cuda-runtime-cu12 \
+      nvidia-cuda-nvrtc-cu12 nvidia-cufft-cu12 nvidia-cusolver-cu12 \
+      nvidia-cusparse-cu12 nvidia-nvjitlink-cu12 "nvidia-nvtx-cu12==12.1.105" \
+      || { warn "could not fetch CUDA runtime libs; gnina will not load"; return; }
+  fi
+
+  cat >/usr/local/bin/gnina <<WRAPPER
+#!/usr/bin/env bash
+LD=\$(find "${libs}/nvidia" -maxdepth 2 -type d -name lib | tr '\\n' ':')
+export LD_LIBRARY_PATH="\${LD}\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
+exec "${bin}" "\$@"
+WRAPPER
+  chmod +x /usr/local/bin/gnina
 }
 
 install_uv() {
@@ -198,11 +228,11 @@ main() {
   if (( VERIFY_ONLY == 0 )); then
     need_root
     install_apt_packages
+    install_uv
     install_fpocket
     install_vina
     install_p2rank
     install_gnina
-    install_uv
   else
     log "verify-only"
   fi
