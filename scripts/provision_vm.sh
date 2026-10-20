@@ -35,14 +35,32 @@ install_apt_packages() {
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
   # openbabel     -> charge/format fallback in receptor prep
-  # fpocket       -> geometric pocket prediction, cross-checks P2Rank
   # default-jre   -> P2Rank is a JVM application
-  # build-essential + libs -> wheels that have no manylinux build
+  # libnetcdf-dev -> fpocket links against it
+  # build-essential + libs -> fpocket, and wheels with no manylinux build
+  #
+  # fpocket is NOT packaged for Ubuntu 24.04 (absent from universe too), so it
+  # is built from source below rather than installed here.
   apt-get install -y -qq --no-install-recommends \
     curl ca-certificates unzip tar gzip git \
-    openbabel fpocket default-jre-headless \
-    build-essential libboost-all-dev swig \
+    openbabel default-jre-headless \
+    build-essential libnetcdf-dev libboost-all-dev swig \
     >/dev/null
+}
+
+install_fpocket() {
+  if command -v fpocket >/dev/null 2>&1; then log "fpocket present, skipping"; return; fi
+  log "fpocket (from source — not in the Ubuntu archive)"
+  local src="${TOOLS_DIR}/fpocket"
+  rm -rf "$src"
+  mkdir -p "$TOOLS_DIR"
+  git clone -q --depth 1 https://github.com/Discngine/fpocket.git "$src" \
+    || die "could not clone fpocket"
+  ( cd "$src" && make -j"$(nproc)" >/tmp/fpocket_build.log 2>&1 ) \
+    || { tail -20 /tmp/fpocket_build.log >&2; die "fpocket build failed"; }
+  # `make install` is unreliable here; the binaries land in bin/ either way.
+  install -m0755 "$src"/bin/fpocket "$src"/bin/dpocket "$src"/bin/mdpocket \
+    "$src"/bin/tpocket /usr/local/bin/ || die "could not install fpocket binaries"
 }
 
 install_vina() {
@@ -60,8 +78,15 @@ install_p2rank() {
   local url="https://github.com/rdk/p2rank/releases/download/${P2RANK_VERSION}/p2rank_${P2RANK_VERSION}.tar.gz"
   curl -fsSL "$url" -o /tmp/p2rank.tar.gz || die "could not download p2rank from $url"
   tar -xzf /tmp/p2rank.tar.gz -C "$TOOLS_DIR"
-  ln -sf "${TOOLS_DIR}/p2rank_${P2RANK_VERSION}/prank" /usr/local/bin/prank
   rm -f /tmp/p2rank.tar.gz
+  # P2Rank's launcher resolves its jars and models relative to its own location,
+  # so a symlink into /usr/local/bin breaks it with "Could not find or load main
+  # class cz.siret.prank.program.Main". Ship a wrapper that runs it in place.
+  cat >/usr/local/bin/prank <<WRAPPER
+#!/usr/bin/env bash
+exec "${TOOLS_DIR}/p2rank_${P2RANK_VERSION}/prank" "\$@"
+WRAPPER
+  chmod +x /usr/local/bin/prank
 }
 
 install_gnina() {
@@ -73,8 +98,13 @@ install_gnina() {
     install -m 0755 "${GNINA_STAGED}" /usr/local/bin/gnina
     return
   fi
-  local url="https://github.com/gnina/gnina/releases/latest/download/gnina"
-  if curl -fsSL "$url" -o /usr/local/bin/gnina; then
+  local url=""
+  # Resolve the newest release asset actually named "gnina"; the /latest/download
+  # alias 404s because the asset name carries no fixed path.
+  url=$(curl -fsSL https://api.github.com/repos/gnina/gnina/releases/latest \
+        | grep -oE '"browser_download_url": *"[^"]*/gnina"' \
+        | head -1 | cut -d'"' -f4 || true)
+  if [[ -n "$url" ]] && curl -fsSL "$url" -o /usr/local/bin/gnina; then
     chmod +x /usr/local/bin/gnina
   else
     warn "gnina download failed — the pipeline runs without it, but every"
@@ -91,22 +121,25 @@ install_uv() {
 
 # -------------------------------------------------------------- verification
 
-# name | probe command | fatal if missing
+# Several of these print their banner and then exit non-zero (fpocket with no
+# input, prank --help, java -version). Exit status is therefore not a usable
+# signal; match the banner instead.
+# name | probe | fatal | expected substring
 CHECKS=(
-  "vina|vina --version|yes"
-  "obabel|obabel -V|yes"
-  "fpocket|fpocket -v|yes"
-  "prank|prank --help|yes"
-  "java|java -version|yes"
-  "uv|uv --version|yes"
-  "gnina|gnina --version|no"
+  "vina|vina --version|yes|AutoDock Vina"
+  "obabel|obabel -V|yes|Open Babel"
+  "fpocket|fpocket|yes|POCKET HUNTING"
+  "prank|prank|yes|P2Rank"
+  "java|java -version|yes|version"
+  "uv|uv --version|yes|uv "
+  "gnina|gnina --version|no|gnina"
 )
 
 verify() {
   log "verifying external binaries"
   local failed=0 soft=0
   for entry in "${CHECKS[@]}"; do
-    IFS='|' read -r name probe fatal <<<"$entry"
+    IFS='|' read -r name probe fatal expect <<<"$entry"
     if ! command -v "$name" >/dev/null 2>&1; then
       if [[ $fatal == yes ]]; then
         printf '  \033[1;31m✗ %-8s not on PATH\033[0m\n' "$name"; failed=$((failed+1))
@@ -115,13 +148,16 @@ verify() {
       fi
       continue
     fi
-    # A binary that exists but cannot execute (missing .so, wrong arch) is the
-    # failure mode that otherwise surfaces three hours in. Run it.
+    # A binary that exists but cannot execute (missing .so, wrong arch, a JVM
+    # launcher that lost its home directory) is the failure that otherwise
+    # surfaces three hours in. Run it and look for its banner.
     local out
-    if out=$($probe 2>&1 | head -1); then
-      printf '  \033[1;32m✓ %-8s\033[0m %s\n' "$name" "${out:0:60}"
+    out=$(timeout 60 $probe 2>&1 | head -5 || true)
+    if grep -qF "$expect" <<<"$out"; then
+      printf '  \033[1;32m✓ %-8s\033[0m %s\n' "$name" "$(head -1 <<<"$out" | cut -c1-60)"
     else
-      printf '  \033[1;31m✗ %-8s present but will not run: %s\033[0m\n' "$name" "${out:0:60}"
+      printf '  \033[1;31m✗ %-8s present but did not report %s: %s\033[0m\n' \
+        "$name" "$expect" "$(head -1 <<<"$out" | cut -c1-50)"
       [[ $fatal == yes ]] && failed=$((failed+1))
     fi
   done
@@ -162,6 +198,7 @@ main() {
   if (( VERIFY_ONLY == 0 )); then
     need_root
     install_apt_packages
+    install_fpocket
     install_vina
     install_p2rank
     install_gnina
