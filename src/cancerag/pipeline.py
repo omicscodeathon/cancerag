@@ -641,12 +641,17 @@ def execute(specs: list[StepSpec], *, force: bool = False,
 
 def run_with_zenml(specs: list[StepSpec], force: bool,
                    telemetry: "MlflowTelemetry | None" = None) -> None:
+    # Without this the client writes to its own SQLite store and the run never
+    # appears in the dashboard the server is serving.
+    os.environ.setdefault("ZENML_STORE_URL",
+                          os.environ.get("ZENML_SERVER_URL", "http://127.0.0.1:8237"))
     """Same chain, wrapped for the DAG and the dashboard.
 
     Resume stays in the step bodies rather than in ZenML's cache: the artefacts
     on disk are the source of truth, so a step is skipped because its output
     exists, not because a framework believes nothing changed.
     """
+    import cancerag.pipeline as selfmod
     from zenml import pipeline as zen_pipeline, step as zen_step
     from zenml import log_metadata
 
@@ -661,7 +666,17 @@ def run_with_zenml(specs: list[StepSpec], force: bool,
 
         _fn.__name__ = spec.name
         _fn.__doc__ = spec.description
-        return zen_step(name=spec.name, enable_cache=False)(_fn)
+        # ZenML resolves a step by importing its module and looking the function
+        # up by name. A closure is not reachable that way, and under
+        # `python -m cancerag.pipeline` the running module is __main__, which
+        # ZenML cannot import — so it raised
+        # "module '__main__' has no attribute 'curation'". Publish each
+        # generated step on the real, importable module and point it there.
+        _fn.__module__ = selfmod.__name__
+        _fn.__qualname__ = spec.name
+        zstep = zen_step(name=spec.name, enable_cache=False)(_fn)
+        setattr(selfmod, spec.name, zstep)
+        return zstep
 
     zen_steps = [make(s) for s in specs]
 
@@ -674,6 +689,8 @@ def run_with_zenml(specs: list[StepSpec], force: bool,
             # shared artefacts.
             previous = zs(after=previous) if previous is not None else zs()
 
+    cancerag_pipeline.__module__ = selfmod.__name__
+    setattr(selfmod, "cancerag_pipeline", cancerag_pipeline)
     cancerag_pipeline()
 
 
