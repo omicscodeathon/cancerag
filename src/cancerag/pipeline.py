@@ -688,12 +688,18 @@ def run_with_zenml(specs: list[StepSpec], force: bool,
 
     @zen_pipeline(name="cancerag", enable_cache=False)
     def cancerag_pipeline() -> None:
-        previous = None
-        for zs in zen_steps:
-            # after= makes the DAG a chain rather than a fan-out; the stages are
-            # genuinely sequential and running them in parallel would corrupt
-            # shared artefacts.
-            previous = zs(after=previous) if previous is not None else zs()
+        # The stages are strictly sequential: each consumes the artefacts the
+        # previous one writes. `after` takes invocation ids (the step names),
+        # not the value a step returns -- these steps return None, so passing
+        # the return value chained nothing and ZenML ran all 21 concurrently in
+        # its own order, failing every step whose inputs did not exist yet.
+        previous: str | None = None
+        for spec, zs in zip(specs, zen_steps):
+            if previous is None:
+                zs(id=spec.name)
+            else:
+                zs(id=spec.name, after=[previous])
+            previous = spec.name
 
     setattr(selfmod, "cancerag_pipeline", cancerag_pipeline)
     main_mod = sys.modules.get("__main__")
