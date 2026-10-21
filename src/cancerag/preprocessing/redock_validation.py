@@ -449,6 +449,53 @@ def _prepare_receptor_meeko(
         )
 
 
+# AutoDock's type set has no parameters for a handful of elements that appear
+# in BiasDB ligands, and Vina refuses the whole PDBQT rather than the atom:
+#   "PDBQT parsing error: Atom type B is not a valid AutoDock type".
+# Two ligands failed this way and were then silently counted among the
+# peptide scope exclusions -- one of them, a bare barium ion, has zero
+# rotatable bonds and is not a peptide by any reading.
+#
+# Map each to its nearest parameterised neighbour so the pair docks and is
+# reported, rather than vanishing. Both substitutions are approximations and
+# are recorded per pair in `atom_type_substitutions` so the affected rows can
+# be identified, reported in the methods, and excluded from any analysis that
+# should not rest on them.
+#   B  -> C : boronic-acid boron is trigonal sp2, geometrically carbon-like.
+#   Ba -> CA: nearest supported group-2 metal (Ca), same charge and column.
+UNSUPPORTED_ATOM_TYPE_MAP: dict[str, str] = {"B": "C", "Ba": "CA", "BA": "CA"}
+
+
+def remap_unsupported_atom_types(pdbqt: Path) -> dict[str, str]:
+    """Rewrite AutoDock types Vina cannot parse. Returns what was substituted.
+
+    The type sits in the last whitespace-separated field of ATOM/HETATM lines
+    in a PDBQT. Coordinates, charges and connectivity are untouched; only the
+    type label changes, so the pose geometry is unaffected.
+    """
+    if not pdbqt.exists():
+        return {}
+    out, subs = [], {}
+    for line in pdbqt.read_text().splitlines(keepends=True):
+        if line.startswith(("ATOM", "HETATM")):
+            stripped = line.rstrip("\n")
+            parts = stripped.rsplit(None, 1)
+            if len(parts) == 2 and parts[1] in UNSUPPORTED_ATOM_TYPE_MAP:
+                new = UNSUPPORTED_ATOM_TYPE_MAP[parts[1]]
+                subs[parts[1]] = new
+                pad = " " * max(1, len(parts[1]) - len(new))
+                line = f"{parts[0]}{pad} {new}\n"
+        out.append(line)
+    if subs:
+        pdbqt.write_text("".join(out))
+        logger.warning(
+            "Substituted unsupported AutoDock atom types in %s: %s. The pose "
+            "is an approximation and the pair is flagged.",
+            pdbqt.name, ", ".join(f"{k}->{v}" for k, v in subs.items()),
+        )
+    return subs
+
+
 def _prepare_ligand_meeko(
     input_pdb: Path, output_pdbqt: Path
 ) -> None:
@@ -487,12 +534,14 @@ def _prepare_ligand_meeko(
         if not is_valid or not pdbqt_string:
             raise RuntimeError(f"meeko writer error: {err}")
         output_pdbqt.write_text(pdbqt_string)
+        remap_unsupported_atom_types(output_pdbqt)
     except Exception as exc:
         logger.warning(
             "Meeko ligand prep failed for %s (%s); falling back to obabel",
             input_pdb, exc,
         )
         _run_obabel_to_pdbqt(input_pdb, output_pdbqt, mode="ligand")
+        remap_unsupported_atom_types(output_pdbqt)
 
 
 def _run_vina(

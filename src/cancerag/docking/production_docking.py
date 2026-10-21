@@ -64,6 +64,41 @@ DEFAULT_NUM_MODES = 9
 DEFAULT_VINA_TIMEOUT_S = 1800
 
 
+
+# Measured on a c2d-standard-8, AutoDock Vina 1.2.5, exhaustiveness 16, one
+# core, at the real binding site: a 23-torsion ligand takes 1027 s (578 s at
+# exhaustiveness 8). The flat 1800 s cap therefore sat just above the cost of
+# a mid-sized flexible ligand on an idle core -- and once eight workers
+# contend for eight cores, every peptide crosses it. 55 of 587 pairs timed
+# out, median 27 rotatable bonds, and were then reported as "did not
+# converge" and excluded as out-of-scope peptides.
+#
+# Scale the budget with the torsion count instead, since that is what drives
+# the search. 150 s per torsion keeps the measured 23-torsion case (1027 s)
+# inside a 3450 s budget with room for contention, and gives a 40-torsion
+# peptide 6000 s. The floor stays at the old default for rigid ligands.
+VINA_SECONDS_PER_TORSION = 150
+
+
+def torsion_aware_timeout(
+    ligand_pdbqt: Path, floor_s: int = DEFAULT_VINA_TIMEOUT_S
+) -> int:
+    """Seconds to allow this ligand, from its rotatable-bond count.
+
+    Reads TORSDOF from the prepared PDBQT, which is Vina's own count of the
+    active torsions it will search -- more faithful than an RDKit estimate,
+    because it reflects what Meeko actually left rotatable.
+    """
+    torsions = 0
+    try:
+        for line in ligand_pdbqt.read_text().splitlines():
+            if line.startswith("TORSDOF"):
+                torsions = int(line.split()[1])
+                break
+    except (OSError, ValueError, IndexError):
+        return floor_s
+    return max(floor_s, torsions * VINA_SECONDS_PER_TORSION)
+
 @dataclass
 class DockingJob:
     pair_id: str  # short identifier: inchikey14_short + receptor_uniprot
@@ -251,7 +286,8 @@ def run_one_dock(
             out_pdbqt=out_pdbqt,
             center=tuple(job.box_center), size=tuple(job.box_size),
             exhaustiveness=exhaustiveness, num_modes=num_modes,
-            cpu_threads=cpu_threads, timeout_s=timeout_s,
+            cpu_threads=cpu_threads,
+            timeout_s=torsion_aware_timeout(ligand_pdbqt, timeout_s),
         )
 
         poses = parse_vina_pdbqt(out_pdbqt.read_text())
