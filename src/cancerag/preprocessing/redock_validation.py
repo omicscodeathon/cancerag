@@ -28,6 +28,7 @@ import json
 import logging
 import shutil
 import subprocess
+import urllib.request
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from math import sqrt
@@ -430,6 +431,55 @@ def _prepare_receptor_meeko(
         )
 
 
+COMPONENT_CACHE = Path("data/cache/pdb_components")
+_RCSB_IDEAL_SDF = "https://files.rcsb.org/ligands/download/{code}_ideal.sdf"
+
+
+def residue_code_of(ligand_pdb: Path) -> str | None:
+    """The three-letter PDB chemical-component code of a ligand PDB."""
+    try:
+        for line in ligand_pdb.read_text().splitlines():
+            if line.startswith(("HETATM", "ATOM")):
+                code = line[17:20].strip()
+                return code or None
+    except OSError:
+        return None
+    return None
+
+
+def fetch_component_template(code: str) -> "Chem.Mol | None":
+    """The RCSB ideal-geometry component for ``code``, cached on disk.
+
+    This is the ligand's real chemistry: the SDF carries bond orders, which a
+    PDB file does not. Cached because a re-dock run asks for the same few
+    dozen components every time and RCSB should not be hit for each.
+    """
+    from rdkit import Chem
+
+    COMPONENT_CACHE.mkdir(parents=True, exist_ok=True)
+    cached = COMPONENT_CACHE / f"{code}_ideal.sdf"
+    if not cached.exists():
+        try:
+            with urllib.request.urlopen(
+                _RCSB_IDEAL_SDF.format(code=code), timeout=30
+            ) as fh:
+                cached.write_bytes(fh.read())
+        except Exception as exc:
+            logger.warning("could not fetch PDB component %s: %s", code, exc)
+            return None
+    supplier = Chem.SDMolSupplier()
+    supplier.SetData(cached.read_text(), removeHs=False)
+    template = next(iter(supplier), None)
+    if template is None:
+        return None
+    # The ideal SDF is fully protonated; the crystal ligand we extracted is
+    # heavy-atom only. AssignBondOrdersFromTemplate matches on atom count, so
+    # with hydrogens on the template it finds no match at all -- which is how
+    # this correction silently did nothing on 51 of 53 receptors the first
+    # time it was written.
+    return Chem.RemoveHs(template)
+
+
 def _prepare_ligand_meeko(
     input_pdb: Path, output_pdbqt: Path
 ) -> None:
@@ -438,17 +488,30 @@ def _prepare_ligand_meeko(
     Pipeline:
     1. RDKit reads the PDB (heavy atoms only, no Hs because we extracted
        just the experimental positions).
-    2. RDKit adds hydrogens with `addCoords=True` so the H positions are
+    2. Bond orders are assigned from the ligand's RCSB chemical component,
+       because a PDB file does not carry them (see below).
+    3. RDKit adds hydrogens with `addCoords=True` so the H positions are
        inferred from geometry, not random.
-    3. Meeko's `MoleculePreparation` assigns AD4 atom types, identifies
+    4. Meeko's `MoleculePreparation` assigns AD4 atom types, identifies
        rotatable bonds, computes Gasteiger charges.
-    4. `PDBQTWriterLegacy` emits the standard PDBQT format.
+    5. `PDBQTWriterLegacy` emits the standard PDBQT format.
+
+    Step 2 exists because without it RDKit infers connectivity from
+    interatomic distances and makes every bond single, so an aromatic ring
+    becomes six rotatable bonds that do not exist. Measured over the 53
+    co-crystal ligands, **39 (74%) had the wrong TORSDOF**, 37 of them
+    inflated, median +2 and as much as +8. That count decides how hard Vina's
+    search is, so it decides the re-dock RMSD -- which is this pipeline's own
+    quality gate and feeds every receptor's confidence flag. The
+    kappa-opioid showcase (``U99``) was re-docked with 9 torsions against a
+    true 6.
 
     Falls back to obabel if Meeko fails (e.g. exotic chemistry).
     """
     try:
         from meeko import MoleculePreparation, PDBQTWriterLegacy
         from rdkit import Chem
+        from rdkit.Chem import AllChem
     except ImportError:
         _run_obabel_to_pdbqt(input_pdb, output_pdbqt, mode="ligand")
         return
@@ -460,6 +523,26 @@ def _prepare_ligand_meeko(
         )
         _run_obabel_to_pdbqt(input_pdb, output_pdbqt, mode="ligand")
         return
+
+    code = residue_code_of(input_pdb)
+    template = fetch_component_template(code) if code else None
+    if template is not None:
+        try:
+            mol = AllChem.AssignBondOrdersFromTemplate(template, mol)
+        except Exception as exc:
+            logger.warning(
+                "component %s did not match the crystal ligand in %s (%s); "
+                "its torsion count is inferred from geometry and will be "
+                "wrong wherever a ring is aromatic",
+                code, input_pdb, exc,
+            )
+    else:
+        logger.warning(
+            "no PDB component template for %s (code=%s); bond orders are "
+            "inferred from geometry and the torsion count will be inflated",
+            input_pdb, code,
+        )
+
     mol = Chem.AddHs(mol, addCoords=True)
     try:
         prep = MoleculePreparation()
