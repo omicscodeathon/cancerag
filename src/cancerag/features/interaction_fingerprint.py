@@ -42,14 +42,55 @@ class IFPResult:
 _RECEPTOR_CACHE: dict[Path, "object"] = {}
 
 
+def assert_receptor_is_bonded(mol: Chem.Mol, source: Path) -> None:
+    """Refuse a receptor that reached us as a bag of disconnected atoms.
+
+    This guard exists because the pipeline shipped one for months without
+    anyone noticing. Loading via ``MDAnalysis.Universe(pdb)`` derives bonds
+    only from ``CONECT`` records, and the ``PDBFile.writeFile`` call below
+    emits those only for disulfides -- so the receptor arrived at ProLIF with
+    6672 atoms and *one* bond, and zero perceived aromatic atoms.
+
+    Nothing raised. ProLIF ran, returned a fingerprint, and the fingerprint
+    was wrong in a way that is invisible downstream: six of its nine
+    interaction types need connectivity or aromaticity, so they could never
+    fire, and the released feature block was 111/122 plain van der Waals
+    proximity. A silent featuriser defect that survives to a results table is
+    worse than a crash, so this one crashes.
+    """
+    n_atoms, n_bonds = mol.GetNumAtoms(), mol.GetNumBonds()
+    n_aromatic = sum(1 for a in mol.GetAtoms() if a.GetIsAromatic())
+    # A protein is a covalent chain: bonds slightly exceed atoms. Anything
+    # near zero means template perception did not happen.
+    if n_bonds < 0.5 * n_atoms:
+        raise ValueError(
+            f"{source}: {n_atoms} atoms but only {n_bonds} bonds -- the "
+            "receptor has no connectivity, so ProLIF cannot perceive "
+            "Hydrophobic, HBAcceptor, PiStacking, Anionic, CationPi or "
+            "PiCation contacts. Refusing to emit a fingerprint that would "
+            "silently contain van der Waals contacts alone."
+        )
+    if n_aromatic == 0:
+        raise ValueError(
+            f"{source}: no aromatic atoms perceived. Every receptor contains "
+            "PHE/TYR/TRP/HIS; zero means sanitisation did not assign "
+            "aromaticity and PiStacking/CationPi can never fire."
+        )
+
+
 def _load_receptor_for_prolif(receptor_pdb: Path):
     """Load a prepared receptor PDB into a ProLIF Molecule.
 
     Stage 03 prep strips hydrogens (normal for RCSB PDB files), but ProLIF's
     H-bond perception needs them explicit. We use PDBFixer to add Hs at
     pH 7.4 once per receptor, cache the H-added PDB, and load that.
+
+    The H-added PDB is then read with RDKit's PDB reader, which applies
+    standard-residue templates to assign bond orders and perceive
+    aromaticity. MDAnalysis is not used for this: its PDB parser takes bonds
+    from ``CONECT`` records only, which OpenMM does not write for the
+    backbone. See :func:`assert_receptor_is_bonded`.
     """
-    import MDAnalysis as mda
     import prolif as plf
 
     if receptor_pdb in _RECEPTOR_CACHE:
@@ -74,9 +115,37 @@ def _load_receptor_for_prolif(receptor_pdb: Path):
             # Fall through to using the raw PDB; ProLIF will likely fail.
             h_added = receptor_pdb
 
-    u = mda.Universe(str(h_added))
-    protein = u.select_atoms("protein")
-    rec = plf.Molecule.from_mda(protein)
+    # Protein records only, matching the previous `select_atoms("protein")`
+    # so the feature definition does not shift along with the loader. The
+    # stray HETATM in a prepared receptor is typically the conserved
+    # allosteric sodium, which was never part of the fingerprint.
+    block = "".join(
+        line
+        for line in h_added.read_text().splitlines(keepends=True)
+        if line.startswith(("ATOM", "TER", "END"))
+    )
+    mol = Chem.MolFromPDBBlock(block, removeHs=False, sanitize=True)
+    if mol is None:
+        # Sanitisation can trip on a single over-valent atom left by the
+        # fixer. Retry unsanitised, then sanitise with aromaticity perception
+        # so PiStacking stays available.
+        mol = Chem.MolFromPDBBlock(block, removeHs=False, sanitize=False)
+        if mol is None:
+            raise ValueError(f"RDKit could not read receptor {h_added}")
+        Chem.SanitizeMol(mol, catchErrors=True)
+        Chem.SetAromaticity(mol, Chem.AromaticityModel.AROMATICITY_RDKIT)
+        logger.warning(
+            "Receptor %s needed unsanitised load + explicit aromaticity "
+            "perception; check its preparation.", h_added,
+        )
+
+    assert_receptor_is_bonded(mol, h_added)
+    rec = plf.Molecule(mol)
+    logger.debug(
+        "Receptor %s: %d atoms, %d bonds, %d aromatic",
+        h_added.name, mol.GetNumAtoms(), mol.GetNumBonds(),
+        sum(1 for a in mol.GetAtoms() if a.GetIsAromatic()),
+    )
     _RECEPTOR_CACHE[receptor_pdb] = rec
     return rec
 
