@@ -372,6 +372,17 @@ def _prepare_receptor_meeko(
             "--read_pdb", str(pdb),
             "-o", str(output_basename),
             "-p",
+            # Both are required, and only together. Prepared structures still
+            # carry a handful of altloc-A atoms, and Meeko refuses to guess
+            # which conformer to use: it reports "matched with excess
+            # inter-residue bond(s)" on ordinary residues (ARG, LYS) and exits
+            # 1. --default_altloc alone still fails on residues with missing
+            # atoms; -a alone still fails on the altlocs. With neither, 37 of
+            # 61 receptors fell through to the Open Babel fallback, which
+            # docks but produces structures ProLIF cannot type interactions
+            # on -- those same 37 receptors then yielded zero contacts.
+            "-a",
+            "--default_altloc", "A",
         ]
         proc = subprocess.run(
             cmd, capture_output=True, text=True, timeout=timeout_s
@@ -405,9 +416,17 @@ def _prepare_receptor_meeko(
         return
 
     # Pass 4: obabel fallback (last resort).
-    logger.warning(
-        "mk_prepare_receptor failed for %s after PDBFixer + HETATM strip; "
-        "falling back to obabel",
+    #
+    # This path is louder than it looks like it should be because it is not a
+    # neutral substitute: an Open Babel receptor docks fine, so nothing
+    # downstream complains, but ProLIF cannot type interactions on it. When 37
+    # receptors took this path the contact block fell from 122 columns to 61
+    # and 70 % of pairs recorded no contacts at all -- silently, in the one
+    # feature block the study exists to measure.
+    logger.error(
+        "FALLBACK: mk_prepare_receptor failed for %s after PDBFixer + HETATM "
+        "strip; using obabel. Interaction fingerprints for this receptor will "
+        "be degraded or empty.",
         input_pdb,
     )
     _run_obabel_to_pdbqt(input_pdb, output_pdbqt, mode="receptor")
