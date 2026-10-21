@@ -676,6 +676,12 @@ def run_with_zenml(specs: list[StepSpec], force: bool,
         _fn.__qualname__ = spec.name
         zstep = zen_step(name=spec.name, enable_cache=False)(_fn)
         setattr(selfmod, spec.name, zstep)
+        # Under `python -m`, the executing module is __main__ and is a distinct
+        # object from the imported cancerag.pipeline, so ZenML can resolve
+        # against either. Register on both.
+        main_mod = sys.modules.get("__main__")
+        if main_mod is not None:
+            setattr(main_mod, spec.name, zstep)
         return zstep
 
     zen_steps = [make(s) for s in specs]
@@ -689,8 +695,10 @@ def run_with_zenml(specs: list[StepSpec], force: bool,
             # shared artefacts.
             previous = zs(after=previous) if previous is not None else zs()
 
-    cancerag_pipeline.__module__ = selfmod.__name__
     setattr(selfmod, "cancerag_pipeline", cancerag_pipeline)
+    main_mod = sys.modules.get("__main__")
+    if main_mod is not None:
+        setattr(main_mod, "cancerag_pipeline", cancerag_pipeline)
     cancerag_pipeline()
 
 
