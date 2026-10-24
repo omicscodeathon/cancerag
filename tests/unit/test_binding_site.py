@@ -169,3 +169,85 @@ class TestDefineBindingSite:
             )
         assert site.confidence == "no_pocket_found"
         assert site.method == "no_pocket_found"
+
+
+def _site(uniprot: str, method: str, confidence: str) -> dict:
+    return {"uniprot": uniprot, "biasdb_name": uniprot, "method": method,
+            "confidence": confidence, "structure_source": "pdb",
+            "center_x": 0.0, "center_y": 0.0, "center_z": 0.0,
+            "size_x": 22.0, "size_y": 22.0, "size_z": 22.0}
+
+
+@pytest.mark.unit
+class TestBindingSiteTotals:
+    """``totals`` must always be derived from the records it summarises."""
+
+    def test_totals_from_records(self):
+        from cancerag.preprocessing.binding_site import binding_site_totals
+        sites = [_site("A", "cocrystal_ligand", "ok"),
+                 _site("B", "cocrystal_ligand", "ok"),
+                 _site("C", "primary_only", "low_confidence")]
+        assert binding_site_totals(sites) == {
+            "receptors": 3,
+            "by_method": {"cocrystal_ligand": 2, "primary_only": 1},
+            "by_confidence": {"low_confidence": 1, "ok": 2},
+        }
+
+    def test_empty(self):
+        from cancerag.preprocessing.binding_site import binding_site_totals
+        assert binding_site_totals([]) == {
+            "receptors": 0, "by_method": {}, "by_confidence": {}}
+
+    def test_writer_ignores_stale_totals(self, tmp_path: Path):
+        from cancerag.preprocessing.binding_site import write_binding_sites
+        payload = {
+            "config": {}, "repaired_receptors": ["C"],
+            "totals": {"receptors": 99, "by_method": {"consensus": 99},
+                       "by_confidence": {"ok": 99}},
+            "binding_sites": [_site("A", "cocrystal_ligand", "ok"),
+                              _site("C", "primary_only", "low_confidence")],
+        }
+        out = tmp_path / "bs.json"
+        written = write_binding_sites(payload, out)
+        on_disk = json.loads(out.read_text())
+        assert on_disk == written
+        assert on_disk["totals"]["receptors"] == 2
+        assert on_disk["totals"]["by_method"] == {
+            "cocrystal_ligand": 1, "primary_only": 1}
+        assert on_disk["repaired_receptors"] == ["C"]  # other keys kept
+        assert payload["totals"]["receptors"] == 99  # input not mutated
+
+    def test_recompute_backs_up_once_and_regenerates_audit(self, tmp_path: Path):
+        from cancerag.preprocessing.binding_site import (
+            recompute_binding_site_totals,
+        )
+        path = tmp_path / "bs.json"
+        stale = {"generated_at_utc": "t", "config": {
+                     "box_size_angstrom": 22.0,
+                     "agreement_threshold_angstroms": 5.0},
+                 "totals": {"receptors": 1, "by_method": {}, "by_confidence": {}},
+                 "binding_sites": [_site("A", "consensus", "ok")]}
+        path.write_text(json.dumps(stale))
+        audit = tmp_path / "audit.md"
+        recompute_binding_site_totals(path, audit_path=audit, backup_suffix=".bak")
+        recompute_binding_site_totals(path, backup_suffix=".bak")
+        assert json.loads((tmp_path / "bs.json.bak").read_text()) == stale
+        assert json.loads(path.read_text())["totals"]["by_method"] == {"consensus": 1}
+        assert "consensus: 1" in audit.read_text()
+
+    def test_derived_prolif_copies_are_not_receptors(self, tmp_path: Path):
+        from cancerag.preprocessing.binding_site import prepared_receptor_pdbs
+        for name in ("P1.pdb", "P1.prolif_H.pdb", "P2.pdb"):
+            (tmp_path / name).write_text("END\n")
+        assert [p.name for p in prepared_receptor_pdbs(tmp_path)] == [
+            "P1.pdb", "P2.pdb"]
+
+    def test_shipped_file_totals_match_records(self):
+        """The committed artefact itself must be self-consistent."""
+        from cancerag.preprocessing.binding_site import binding_site_totals
+        shipped = (Path(__file__).resolve().parents[2]
+                   / "data/processed/binding_sites.json")
+        if not shipped.exists():
+            pytest.skip("binding_sites.json not present")
+        payload = json.loads(shipped.read_text())
+        assert payload["totals"] == binding_site_totals(payload["binding_sites"])

@@ -611,6 +611,11 @@ _THREE_TO_ONE = {
 
 _UNIPROT_SEQ_CACHE: dict[str, str | None] = {}
 
+# Identity gate defaults used by ``prepare_receptor`` and by the offline
+# verifier in ``cancerag.preprocessing.chain_verification``.
+MIN_CHAIN_IDENTITY = 0.55
+MIN_CHAIN_COVERAGE = 0.30
+
 
 def _fetch_uniprot_sequence(uniprot: str) -> str | None:
     """Fetch the canonical UniProt sequence (FASTA). Cached in-memory."""
@@ -728,7 +733,7 @@ def _parse_dbref_chain_to_uniprot(
 
 
 def verify_chain_identity(
-    pdb_path: Path | str, target_uniprot: str,
+    pdb_path: Path | str, target_uniprot: str, *, canonical: str | None = None,
 ) -> tuple[float | None, float | None]:
     """Align a prepared single-chain structure to its canonical UniProt sequence.
 
@@ -743,8 +748,12 @@ def verify_chain_identity(
     Scoring them as mismatches would reject every fusion construct in the set.
     Coverage reports what fraction of the construct did align, so a degenerate
     three-residue alignment cannot masquerade as a perfect match.
+
+    ``canonical`` lets a caller supply the UniProt sequence it already holds
+    (e.g. from an on-disk FASTA cache) instead of fetching it.
     """
-    canonical = _fetch_uniprot_sequence(target_uniprot)
+    if canonical is None:
+        canonical = _fetch_uniprot_sequence(target_uniprot)
     if not canonical:
         return None, None
     parser = PDBParser(QUIET=True)
@@ -840,8 +849,8 @@ def prepare_receptor(
     altloc: str = "A",
     structure_source: str = "pdb",
     write_meta: bool = True,
-    min_chain_identity: float = 0.55,
-    min_chain_coverage: float = 0.30,
+    min_chain_identity: float = MIN_CHAIN_IDENTITY,
+    min_chain_coverage: float = MIN_CHAIN_COVERAGE,
 ) -> dict:
     """Curate a single receptor PDB and emit a `.prep.meta.json` sidecar.
 
