@@ -65,6 +65,69 @@ DEFAULT_NUM_MODES = 9
 DEFAULT_VINA_TIMEOUT_S = 1800
 
 
+
+# Measured on a c2d-standard-8, AutoDock Vina 1.2.5, exhaustiveness 16, one
+# core, at the real binding site: a 23-torsion ligand takes 1027 s (578 s at
+# exhaustiveness 8). The flat 1800 s cap therefore sat just above the cost of
+# a mid-sized flexible ligand on an idle core -- and once eight workers
+# contend for eight cores, every peptide crosses it. 55 of 587 pairs timed
+# out, median 27 rotatable bonds, and were then reported as "did not
+# converge" and excluded as out-of-scope peptides.
+#
+# Scale the budget with the torsion count instead, since that is what drives
+# the search. 150 s per torsion keeps the measured 23-torsion case (1027 s)
+# inside a 3450 s budget with room for contention, and gives a 40-torsion
+# peptide 6000 s. The floor stays at the old default for rigid ligands.
+# Core-seconds, not wall-seconds. Measured on the run host 2026-10-21:
+# MJQQGUJPWJCFMO-PITCCTKHSA-N__P30556 (27 active torsions, 80 atoms) needs
+# 4512 core-seconds at exhaustiveness 16 -- 564 s wall across 8 threads at
+# 99% parallel efficiency -- and returns 9 poses, best -8.5 kcal/mol.
+#
+# That is 167 core-seconds per torsion. The previous constant was 150 and was
+# read as *wall* seconds, so this pair was allowed 4050 s on a single thread
+# and killed 11% short of finishing. Every one of the 54 outstanding pairs
+# failed the same way: they average 94 ligand atoms against 29.6 for pairs
+# that succeeded, so they are the only ones for which the deadline ever
+# bound.
+#
+# 600 gives a 3.6x margin over the measurement. Being generous is close to
+# free: Vina exits as soon as its search converges, so a larger allowance
+# costs time only on jobs that were going to fail regardless.
+VINA_CORE_SECONDS_PER_TORSION = 600
+
+
+def torsion_aware_timeout(
+    ligand_pdbqt: Path,
+    floor_s: int = DEFAULT_VINA_TIMEOUT_S,
+    cpu_threads: int = DEFAULT_THREADS_PER_JOB,
+) -> int:
+    """Wall-clock seconds to allow this ligand, from its torsion count.
+
+    Reads TORSDOF from the prepared PDBQT, which is Vina's own count of the
+    active torsions it will search -- more faithful than an RDKit estimate,
+    because it reflects what Meeko actually left rotatable.
+
+    The budget is defined in *core*-seconds and divided by the threads the
+    job will actually get, because that is the only form in which the two
+    quantities are comparable. Vina parallelises its Monte-Carlo search at
+    close to perfect efficiency (measured: 787-793% of a possible 800% on
+    eight cores), so a job handed one thread spends a wall-clock deadline
+    performing a fraction of the search that deadline was sized for. Setting
+    the allowance in wall-seconds while handing out one thread is what made
+    the earlier run kill 54 pairs that were all within reach.
+    """
+    torsions = 0
+    try:
+        for line in ligand_pdbqt.read_text().splitlines():
+            if line.startswith("TORSDOF"):
+                torsions = int(line.split()[1])
+                break
+    except (OSError, ValueError, IndexError):
+        return floor_s
+    threads = max(1, cpu_threads)
+    budget = torsions * VINA_CORE_SECONDS_PER_TORSION // threads
+    return max(floor_s, budget)
+
 @dataclass
 class DockingJob:
     # "<full 27-char InChIKey>__<receptor_uniprot>"; the full key (not the
@@ -254,7 +317,10 @@ def run_one_dock(
             out_pdbqt=out_pdbqt,
             center=tuple(job.box_center), size=tuple(job.box_size),
             exhaustiveness=exhaustiveness, num_modes=num_modes,
-            cpu_threads=cpu_threads, timeout_s=timeout_s,
+            cpu_threads=cpu_threads,
+            timeout_s=torsion_aware_timeout(
+                ligand_pdbqt, timeout_s, cpu_threads
+            ),
         )
 
         poses = parse_vina_pdbqt(out_pdbqt.read_text())
