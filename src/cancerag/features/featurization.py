@@ -12,7 +12,15 @@ Emits:
     columns = canonical_smiles + 200 2D descriptors + 2048 morgan_* + 167 maccs_*.
   - ``data/processed/pose_3d_features.csv`` — 1 row / docked pair, 10 3D cols.
   - ``data/processed/interaction_fingerprints.parquet`` — 1 row / docked pair,
-    columns = sparse-set IFP bits (variable, residue × interaction).
+    columns = sparse-set IFP bits, named by Ballesteros-Weinstein generic
+    position (``ifp_BW3.32_HBDonor``); receptors outside class A numbering
+    keep ProLIF's per-structure names (``ifp_ASP86.A_VdWContact``).
+  - ``data/processed/interaction_fingerprints_raw.parquet`` — the same block
+    before the remap, ProLIF names throughout.
+  - ``data/processed/bw_column_map.json``, ``bw_maps.json``,
+    ``bw_map_reports.json`` — the remap: which raw columns merged into each
+    BW column, the per-receptor residue maps, and each receptor's anchor and
+    identity validation.
   - ``data/processed/featurization.meta.json`` — provenance: rdkit/prolif
     versions, descriptor list, fingerprint definitions, interaction types,
     UTC timestamps, source SHAs.
@@ -37,6 +45,13 @@ from rdkit import Chem
 from rdkit.Chem import Descriptors
 from tqdm import tqdm
 
+from cancerag.features.bw_numbering import (
+    BW_ANCHORS,
+    IFP_META_COLS,
+    build_receptor_maps,
+    remap_interaction_fingerprints,
+    write_bw_artifacts,
+)
 from cancerag.features.interaction_fingerprint import (
     compute_ifp_for_pair,
     prolif_default_interaction_names,
@@ -185,16 +200,74 @@ def build_pose_3d_features(
 # ------------------------------------------------------ interaction fingerprints
 
 
+BW_MIN_IDENTITY = 0.50
+BW_MIN_ANCHORS = 3
+
+
+def apply_bw_remap(
+    raw: pd.DataFrame,
+    receptors_dir: Path | str = "data/processed/receptors",
+    artifacts_dir: Path | str | None = "data/processed",
+    *,
+    min_identity: float = BW_MIN_IDENTITY,
+    min_anchors: int = BW_MIN_ANCHORS,
+) -> pd.DataFrame:
+    """Remap a raw ProLIF block to Ballesteros-Weinstein columns.
+
+    Each receptor's map is built from its ``.prolif_H.pdb`` and kept only if
+    at least ``min_anchors`` of the five class A anchors (N1.50, D2.50, R3.50,
+    P6.50, P7.50) land on the expected residue and aligned-pair identity is at
+    least ``min_identity``. Receptors that fail keep their raw names; the
+    class C calcium-sensing receptor fails by design. Bits merging onto one
+    BW column are OR-ed. When ``artifacts_dir`` is set, writes
+    ``bw_column_map.json``, ``bw_maps.json`` and ``bw_map_reports.json`` there.
+    """
+    maps, reports = build_receptor_maps(
+        raw["receptor_uniprot"].astype(str).unique(), receptors_dir,
+        min_identity=min_identity, min_anchors=min_anchors,
+    )
+    out, column_map = remap_interaction_fingerprints(raw, maps)
+    n_raw = sum(c not in IFP_META_COLS for c in raw.columns)
+    n_out = sum(c not in IFP_META_COLS for c in out.columns)
+    logger.info(
+        "BW remap: %d/%d receptors mapped; %d raw -> %d contact columns "
+        "(%d BW, %d multi-source)",
+        sum(1 for m in maps.values() if m), len(maps), n_raw, n_out,
+        len(column_map), sum(1 for v in column_map.values() if len(v) > 1),
+    )
+    if artifacts_dir is not None:
+        write_bw_artifacts(artifacts_dir, column_map=column_map, maps=maps,
+                           reports=reports)
+    return out
+
+
 def build_interaction_fingerprints(
     unified_csv: Path | str = "data/processed/unified_ligands.csv",
     docking_features_csv: Path | str = "data/processed/docking_features.csv",
     work_root: Path | str = "data/processed/.docking_work",
     receptors_dir: Path | str = "data/processed/receptors",
     output_path: Path | str = "data/processed/interaction_fingerprints.parquet",
+    raw_output_path: Path | str | None = None,
+    *,
+    bw_remap: bool = True,
+    bw_artifacts_dir: Path | str | None = None,
 ) -> pd.DataFrame:
-    """One row per docked pair, sparse IFP bits stored as wide 0/1 columns."""
+    """One row per docked pair, sparse IFP bits stored as wide 0/1 columns.
+
+    ProLIF names each bit after the residue number in the receptor file, which
+    differs between constructs; with ``bw_remap`` (the default, and how the
+    shipped block was built) the bits are renamed to Ballesteros-Weinstein
+    positions via :func:`apply_bw_remap`. The raw block is always written to
+    ``raw_output_path`` (default ``<output stem>_raw.parquet``), and the remap
+    artifacts to ``bw_artifacts_dir`` (default: the output's directory).
+    """
     work_root = Path(work_root)
     receptors_dir = Path(receptors_dir)
+    output_path = Path(output_path)
+    raw_output_path = (
+        Path(raw_output_path) if raw_output_path is not None
+        else output_path.with_name(f"{output_path.stem}_raw.parquet")
+    )
     ulig = pd.read_csv(unified_csv)
     smi_lookup = (
         ulig[["inchikey", "canonical_smiles_std"]]
@@ -229,14 +302,22 @@ def build_interaction_fingerprints(
 
     out = pd.DataFrame(rows).fillna(0)
     # Keep the meta cols first, then sort the IFP bit columns alphabetically.
-    meta_cols = ["pair_id", "inchikey", "receptor_uniprot",
-                 "n_residues_contacted", "n_total_contacts"]
+    meta_cols = list(IFP_META_COLS)
     bit_cols = sorted(c for c in out.columns if c not in meta_cols)
     # Cast bit columns to uint8 to keep parquet compact.
     for c in bit_cols:
         out[c] = out[c].astype(np.uint8)
     out = out[meta_cols + bit_cols]
-    output_path = Path(output_path)
+    out.to_parquet(raw_output_path, index=False)
+    logger.info("raw interaction_fingerprints written: %d rows × %d cols -> %s",
+                len(out), len(out.columns), raw_output_path)
+
+    if bw_remap:
+        out = apply_bw_remap(
+            out, receptors_dir,
+            bw_artifacts_dir if bw_artifacts_dir is not None
+            else output_path.parent,
+        )
     out.to_parquet(output_path, index=False)
     logger.info("interaction_fingerprints written: %d rows × %d cols -> %s",
                 len(out), len(out.columns), output_path)
@@ -279,6 +360,17 @@ def emit_meta(
             "ligand_source": "vina_top_pose_pdbqt",
             "receptor_source": "stage03_prepared_pdb_with_pdbfixer_h",
             "bond_perception": "AssignBondOrdersFromTemplate(canonical_smiles)",
+            "column_naming": {
+                "scheme": "ballesteros_weinstein",
+                "pattern": "ifp_BW<generic position>_<interaction>",
+                "merge": "logical_or",
+                "authority": "GPCRdb residue tables",
+                "structure": "<receptor>.prolif_H.pdb",
+                "gate_min_anchors": BW_MIN_ANCHORS,
+                "gate_anchors": [f"{pos} {aa}" for pos, aa in BW_ANCHORS.items()],
+                "gate_min_identity": BW_MIN_IDENTITY,
+                "unmapped": "keep ProLIF per-structure name",
+            },
         },
         "input_sha256": {
             str(unified_csv): _sha256(Path(unified_csv)),
