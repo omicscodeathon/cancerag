@@ -1,0 +1,14 @@
+# Receptor repairs applied 2026-10-24. Each row replaces what the automatic
+# selector produced, because the automatic choice did not enclose a pocket of
+# the intended protein. Evidence and method: docs/DOCKING_REMEDIATION.md
+#
+# box_source: cocrystal = centroid of the named ligand IN THE SAME FILE as the
+# chain (guarantees a shared coordinate frame); p2rank = pocket predicted on
+# the prepared receptor (same frame by construction).
+uniprot	receptor	pdb	chain	box_x	box_y	box_z	box_source	was	fault	confidence
+P41145	kappa-opioid	8DZP	A	129.8000	120.1000	93.8000	cocrystal:U99	8DZP chain R	prepared chain R, which does not exist in 8DZP; all 36 poses scored ~0	high
+P41146	NOP	4EA3	B	-13.6333	47.6176	-42.1750	p2rank:pocket1 score=23.53 prob=0.890	site 5DHG / receptor 4EA3	binding site and receptor derived from different PDB entries	high
+P41597	CCR2	6GPS	A	13.0442	-13.3310	-13.1127	p2rank:pocket1 score=24.95 prob=0.902	7XA3	receptor was a 20-atom fragment; box built from an ACE cap	high
+P51681	CCR5	4MBS	A	149.8550	108.4150	22.2900	cocrystal:MRV	7O7F	receptor was a 46-atom chain; box built from TYS (sulfotyrosine)	high
+P20309	M3	8E9W	A	133.8558	128.8920	154.8545	cocrystal:WEC	8EA0	8EA0 orthosteric pocket too narrow; pose clashed at 2.20 A	high
+P55085	PAR2	8ZMD	R	136.4580	138.6400	140.3300	p2rank:pocket2 score=3.87 prob=0.151	(unchanged)	clashing pose (+10.425); no usable cocrystal ligand in any structure	PROVISIONAL

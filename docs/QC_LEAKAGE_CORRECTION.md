@@ -1,5 +1,19 @@
 # Per-receptor QC leakage: diagnosis and corrected results
 
+> **Mechanism valid, numbers superseded, 2026-10-24.** The leakage mechanism
+> described here — a covariate computed per receptor and joined onto per-pair
+> rows encodes group identity — is correct and remains the most important
+> methodological finding in this project. The *measurements* predate the
+> docking remediation: they were computed on a feature matrix built from 49
+> non-binding poses and a ProLIF block that could emit only 3 of 9 contact
+> types. **Re-derive every macro-F1 figure below before citing it.**
+>
+> The same trap now applies to new columns: docking engine, exhaustiveness and
+> receptor-structure provenance are per-row properties correlated with ligand
+> class. Run the two-column probe described here against them before training.
+> See `DOCKING_REMEDIATION.md`.
+
+
 _Investigation and full re-training run on 2026-08-03/04. All numbers below are
 reproduced from artefacts in `data/processed/ml_models/`; the pre-correction
 artefacts were preserved under `data/processed/ml_models_preQCfix_backup/`._
