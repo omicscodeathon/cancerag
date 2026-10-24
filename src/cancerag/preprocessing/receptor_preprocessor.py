@@ -99,14 +99,25 @@ class ReceptorPreprocessor:
             fetch_alphafold_pdb,
         )
         from cancerag.preprocessing.pdb_selector import (
+            apply_manual_overrides,
+            load_manual_overrides,
             select_best_pdb,
             write_preferred_tsv,
         )
 
-        # AlphaFold fallback config: enabled by default per Stage 03 decision.
+        # AlphaFold fallback: OFF unless asked for.
+        #
+        # It used to default to True, and the key was absent from config.yaml, so
+        # nothing declared it anywhere. On a clean checkout data/pdb is empty --
+        # it is gitignored and 273 MB -- so select_best_pdb found nothing for
+        # every receptor and this quietly downloaded sixty predicted models and
+        # prepared from those instead. Nothing failed; the structures looked
+        # fine; the provenance was silently not what the methods describe. Every
+        # released sidecar cites a crystal structure and none cites AlphaFold,
+        # so the published pipeline never exercised this path.
         af_cfg = self.config.get("preprocessing", {})
         use_alphafold_fallback = bool(
-            af_cfg.get("alphafold_fallback", True)
+            af_cfg.get("alphafold_fallback", False)
         )
         plddt_threshold = float(af_cfg.get("alphafold_plddt_threshold", 70.0))
         af_cache_dir = Path(self.paths.get(
@@ -185,6 +196,15 @@ class ReceptorPreprocessor:
                     "reason": "no_pdb_cached_use_alphafold_fallback",
                     "manual_override": "",
                 })
+                if not use_alphafold_fallback:
+                    logger.error(
+                        "No cached PDB for %s (%s). Run the structure-retrieval "
+                        "step first (cancerag.pipeline --only fetch_structures). "
+                        "Set preprocessing.alphafold_fallback: true to accept a "
+                        "predicted model instead -- note that changes the "
+                        "structural provenance of the whole run.",
+                        uniprot, biasdb_name,
+                    )
                 # Try AlphaFold fallback if enabled.
                 if use_alphafold_fallback:
                     try:
@@ -342,8 +362,17 @@ class ReceptorPreprocessor:
                         "status": f"prep_failed: {e}",
                     })
 
-        # Emit preferred_pdbs.tsv
+        # Emit preferred_pdbs.tsv, preserving any hand-curated overrides. The
+        # seven chain-identity repairs live only in that column; re-scoring the
+        # cached structures would quietly undo them.
         preferred_path = Path("data/registry/preferred_pdbs.tsv")
+        overrides = load_manual_overrides(preferred_path)
+        rows, honoured = apply_manual_overrides(rows, overrides)
+        if honoured:
+            logger.info(
+                "Honoured %d manual PDB override(s): %s",
+                len(honoured), ", ".join(sorted(honoured)),
+            )
         write_preferred_tsv(rows, preferred_path)
         logger.info("Wrote %d preferred-PDB rows to %s", len(rows), preferred_path)
 

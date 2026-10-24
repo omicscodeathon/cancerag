@@ -246,6 +246,76 @@ def candidates_to_records(cands: list[PDBCandidate]) -> list[dict]:
     ]
 
 
+def load_manual_overrides(path: Path | str) -> dict[str, dict[str, str]]:
+    """Read the hand-edited rows out of an existing preferred-PDB registry.
+
+    Automatic selection scores whatever happens to be cached, and for seven
+    receptors it scored the wrong chain's structure — the kappa-opioid entry
+    resolved to a neurotensin receptor (7UL2). The corrections were recorded by
+    hand in this file's ``manual_override`` column. They are a curation decision
+    that no amount of re-scoring will rediscover, so a rerun has to read them
+    back before it rewrites the file. Without this, a fresh run silently reverts
+    every repair.
+
+    Returns ``{uniprot: row}`` for rows carrying a non-empty override.
+    """
+    path = Path(path)
+    if not path.exists():
+        return {}
+    lines = path.read_text().splitlines()
+    if len(lines) < 2:
+        return {}
+    header = lines[0].split("\t")
+    try:
+        i_uniprot = header.index("uniprot")
+        i_override = header.index("manual_override")
+    except ValueError:
+        logger.warning("%s has no manual_override column; overrides not preserved", path)
+        return {}
+    out: dict[str, dict[str, str]] = {}
+    for line in lines[1:]:
+        if not line.strip():
+            continue
+        parts = line.split("\t")
+        if len(parts) <= max(i_uniprot, i_override):
+            continue
+        if parts[i_override].strip():
+            out[parts[i_uniprot].strip()] = dict(zip(header, parts))
+    return out
+
+
+def apply_manual_overrides(
+    rows: list[dict],
+    overrides: dict[str, dict[str, str]],
+) -> tuple[list[dict], list[str]]:
+    """Replace auto-selected rows with their hand-curated counterparts.
+
+    Returns the rows and the accessions that were overridden, so the caller can
+    log them — a repair that happens silently is a repair nobody can audit.
+    """
+    honoured: list[str] = []
+    merged: list[dict] = []
+    for row in rows:
+        acc = str(row.get("uniprot", ""))
+        override = overrides.get(acc)
+        if override and override.get("selected_pdb"):
+            kept = dict(row)
+            kept["selected_pdb"] = override["selected_pdb"]
+            kept["manual_override"] = override["manual_override"]
+            kept["reason"] = (
+                f"manual override ({override['manual_override']}); "
+                f"auto-selection proposed {row.get('selected_pdb') or 'nothing'}"
+            )
+            for field in ("resolution", "state", "ligand_resname"):
+                if override.get(field):
+                    kept[field] = override[field]
+            merged.append(kept)
+            honoured.append(acc)
+        else:
+            merged.append(row)
+    return merged, honoured
+
+
 def write_preferred_tsv(
     rows: list[dict],
     output_path: Path | str,
@@ -253,7 +323,8 @@ def write_preferred_tsv(
     """Write a TSV of selected PDBs, one per receptor.
 
     Columns: uniprot, biasdb_name, selected_pdb, resolution, state, score,
-    reason, manual_override (blank — for hand-edits).
+    reason, manual_override. Existing hand-edited overrides are preserved —
+    see :func:`load_manual_overrides`.
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)

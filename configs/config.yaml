@@ -21,6 +21,12 @@ data_collection:
   chembl_activity_threshold_nm: 1000
 
 preprocessing:
+  # Off by default. The published run prepared every receptor from a crystal
+  # structure; no released sidecar cites AlphaFold. Turning this on lets a run
+  # with an empty data/pdb substitute predicted models silently, which changes
+  # the structural provenance without failing anything.
+  alphafold_fallback: false
+  alphafold_plddt_threshold: 70.0
   activity_threshold_nm: 1000
   lipinski_strict: false
   tpsa_max: 140
