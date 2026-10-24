@@ -52,6 +52,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The orchestrated pipeline (cancerag.pipeline) imports these. They were
+# installed by hand on the first run host, so a clean build failed at the
+# ZenML import with the chain already provisioned -- declare them instead.
+orchestration = [
+    "zenml[server]>=0.98.0",
+    "mlflow>=2.20.0",
+]
 ml = [
     "catboost>=1.2.0",
     "boruta>=0.3.0",
