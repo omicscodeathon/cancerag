@@ -373,6 +373,17 @@ def _prepare_receptor_meeko(
             "--read_pdb", str(pdb),
             "-o", str(output_basename),
             "-p",
+            # Both are required, and only together. Prepared structures still
+            # carry a handful of altloc-A atoms, and Meeko refuses to guess
+            # which conformer to use: it reports "matched with excess
+            # inter-residue bond(s)" on ordinary residues (ARG, LYS) and exits
+            # 1. --default_altloc alone still fails on residues with missing
+            # atoms; -a alone still fails on the altlocs. With neither, 37 of
+            # 61 receptors fell through to the Open Babel fallback, which
+            # docks but produces structures ProLIF cannot type interactions
+            # on -- those same 37 receptors then yielded zero contacts.
+            "-a",
+            "--default_altloc", "A",
         ]
         proc = subprocess.run(
             cmd, capture_output=True, text=True, timeout=timeout_s
@@ -480,6 +491,46 @@ def fetch_component_template(code: str) -> "Chem.Mol | None":
     return Chem.RemoveHs(template)
 
 
+
+# AutoDock atom types are CASE-SENSITIVE: calcium is "Ca", not "CA".
+# Mapping Ba to "CA" made Vina reject the ligand outright -- "Atom type
+# CA is not a valid AutoDock type" -- so the substitution meant to
+# rescue barium at the calcium-sensing receptor was itself what blocked
+# it. With "Ca" it docks at -1.624 kcal/mol. Ca, Mg and Zn all return
+# the identical score, so the choice of substitute metal does not shift
+# the result; only its validity as a parseable type matters.
+UNSUPPORTED_ATOM_TYPE_MAP: dict[str, str] = {"B": "C", "Ba": "Ca", "BA": "Ca"}
+
+def remap_unsupported_atom_types(pdbqt: Path) -> dict[str, str]:
+    """Rewrite AutoDock types Vina cannot parse. Returns what was substituted.
+
+    The type sits in the last whitespace-separated field of ATOM/HETATM lines
+    in a PDBQT. Coordinates, charges and connectivity are untouched; only the
+    type label changes, so the pose geometry is unaffected.
+    """
+    if not pdbqt.exists():
+        return {}
+    out, subs = [], {}
+    for line in pdbqt.read_text().splitlines(keepends=True):
+        if line.startswith(("ATOM", "HETATM")):
+            stripped = line.rstrip("\n")
+            parts = stripped.rsplit(None, 1)
+            if len(parts) == 2 and parts[1] in UNSUPPORTED_ATOM_TYPE_MAP:
+                new = UNSUPPORTED_ATOM_TYPE_MAP[parts[1]]
+                subs[parts[1]] = new
+                pad = " " * max(1, len(parts[1]) - len(new))
+                line = f"{parts[0]}{pad} {new}\n"
+        out.append(line)
+    if subs:
+        pdbqt.write_text("".join(out))
+        logger.warning(
+            "Substituted unsupported AutoDock atom types in %s: %s. The pose "
+            "is an approximation and the pair is flagged.",
+            pdbqt.name, ", ".join(f"{k}->{v}" for k, v in subs.items()),
+        )
+    return subs
+
+
 def _prepare_ligand_meeko(
     input_pdb: Path, output_pdbqt: Path
 ) -> None:
@@ -551,12 +602,14 @@ def _prepare_ligand_meeko(
         if not is_valid or not pdbqt_string:
             raise RuntimeError(f"meeko writer error: {err}")
         output_pdbqt.write_text(pdbqt_string)
+        remap_unsupported_atom_types(output_pdbqt)
     except Exception as exc:
         logger.warning(
             "Meeko ligand prep failed for %s (%s); falling back to obabel",
             input_pdb, exc,
         )
         _run_obabel_to_pdbqt(input_pdb, output_pdbqt, mode="ligand")
+        remap_unsupported_atom_types(output_pdbqt)
 
 
 def _run_vina(
