@@ -21,6 +21,8 @@ import pandas as pd
 from Bio.PDB import PDBParser
 from tqdm import tqdm
 
+from cancerag.preprocessing.binding_site import DEFAULT_BOX_SIZE_ANGSTROM
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -111,9 +113,9 @@ class ReceptorDescriptorCalculator:
         # Maximum radius from center to edges of box
         size = np.array(
             [
-                binding_site.get("size_x", 25),
-                binding_site.get("size_y", 25),
-                binding_site.get("size_z", 25),
+                binding_site.get("size_x", DEFAULT_BOX_SIZE_ANGSTROM),
+                binding_site.get("size_y", DEFAULT_BOX_SIZE_ANGSTROM),
+                binding_site.get("size_z", DEFAULT_BOX_SIZE_ANGSTROM),
             ]
         )
         max_distance = np.sqrt(np.sum((size / 2) ** 2)) + 5.0  # Add 5A padding

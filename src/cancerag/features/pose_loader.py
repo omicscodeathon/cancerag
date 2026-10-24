@@ -117,57 +117,88 @@ def _extract_first_model_pdb(pdbqt_text: str) -> str:
     return "\n".join(out)
 
 
+def _load_pose_via_meeko(pdbqt_path: Path) -> Chem.Mol | None:
+    """Reconstruct the pose with Meeko, which wrote the PDBQT in the first place.
+
+    Meeko records the ligand's chemistry in the PDBQT it emits and can read
+    it straight back, so nothing has to be re-derived from coordinates. This
+    is the only route that is correct by construction.
+    """
+    try:
+        from meeko import PDBQTMolecule, RDKitMolCreate
+    except ImportError:
+        return None
+    try:
+        pmol = PDBQTMolecule(
+            pdbqt_path.read_text(), is_dlg=False, skip_typing=True
+        )
+        mols = [m for m in RDKitMolCreate.from_pdbqt_mol(pmol) if m is not None]
+    except Exception as exc:
+        logger.debug("meeko round-trip failed for %s: %s", pdbqt_path, exc)
+        return None
+    if not mols or mols[0].GetNumConformers() == 0:
+        return None
+    mol = mols[0]
+    # Keep only the top-ranked pose, so the returned Mol has the same shape
+    # as the template route: one conformer, the best-scoring one.
+    top = Chem.Mol(mol)
+    top.RemoveAllConformers()
+    top.AddConformer(mol.GetConformer(0), assignId=True)
+    Chem.SanitizeMol(top)
+    return top
+
+
 def load_pose_mol(
     pdbqt_path: Path | str,
     template_smiles: str,
 ) -> Chem.Mol | None:
-    """Load the top Vina pose and assign bond orders from a SMILES template.
+    """Load the top Vina pose as a chemically correct RDKit Mol.
 
-    Returns an RDKit Mol with explicit Hs and one 3D conformer matching the
-    docked pose. Falls back to a sanitization-relaxed Mol if bond-order
-    assignment from the template fails (e.g. protonation or tautomer
-    mismatch between the template SMILES and the docked geometry). The
-    relaxed fallback is still usable by ProLIF for hydrophobic / VdW /
-    π-stacking perception (which depend on geometry rather than bond
-    orders) — only some H-bond donor/acceptor calls may be missed.
+    Returns a Mol with explicit Hs and one 3D conformer matching the docked
+    pose, or ``None``.
+
+    Two routes, in order. Meeko reads back the PDBQT it wrote, which needs no
+    inference at all. Failing that, bond orders are assigned from the ligand's
+    own SMILES.
+
+    There is deliberately no third route. The previous one sanitised the
+    raw PDB-parsed pose with ``SANITIZE_KEKULIZE`` switched off and returned
+    that, with a docstring claiming it remained "usable by ProLIF for
+    hydrophobic / VdW / pi-stacking perception". It was not: disabling
+    kekulisation leaves every ring non-aromatic, so PiStacking, CationPi and
+    PiCation cannot fire at all, and the molecule also carries whatever
+    connectivity RDKit guessed from interatomic distances. It fired on
+    **112 of 455** poses (24.6%) and logged at ``debug``, so the features it
+    produced were wrong and nobody saw it. A pose we cannot read correctly is
+    now dropped loudly instead of silently degraded.
     """
     pdbqt_path = Path(pdbqt_path)
     if not pdbqt_path.exists() or pdbqt_path.stat().st_size == 0:
         return None
-    try:
-        pdb_text = _extract_first_model_pdb(pdbqt_path.read_text())
-    except Exception as exc:
-        logger.warning("pose extract failed for %s: %s", pdbqt_path, exc)
-        return None
 
-    pose = Chem.MolFromPDBBlock(pdb_text, removeHs=False, sanitize=False)
-    if pose is None:
-        return None
+    mol = _load_pose_via_meeko(pdbqt_path)
+    if mol is not None:
+        return mol
 
-    template = Chem.MolFromSmiles(template_smiles)
+    template = Chem.MolFromSmiles(template_smiles) if template_smiles else None
     if template is not None:
         try:
-            mol = AllChem.AssignBondOrdersFromTemplate(template, pose)
-            Chem.SanitizeMol(mol)
-            return mol
+            pdb_text = _extract_first_model_pdb(pdbqt_path.read_text())
+            pose = Chem.MolFromPDBBlock(pdb_text, removeHs=False, sanitize=False)
+            if pose is not None:
+                out = AllChem.AssignBondOrdersFromTemplate(template, pose)
+                Chem.SanitizeMol(out)
+                return out
         except Exception as exc:
             logger.debug(
-                "AssignBondOrdersFromTemplate failed for %s (%s); using "
-                "geometry-only fallback",
+                "template bond-order assignment failed for %s: %s",
                 pdbqt_path, exc,
             )
 
-    # Fallback: sanitize without strict valence checks, return geometry-only.
-    try:
-        Chem.SanitizeMol(
-            pose,
-            sanitizeOps=(
-                Chem.SANITIZE_ALL
-                ^ Chem.SANITIZE_PROPERTIES
-                ^ Chem.SANITIZE_KEKULIZE
-            ),
-        )
-        return pose
-    except Exception as exc:
-        logger.warning("load_pose_mol fully failed for %s: %s", pdbqt_path, exc)
-        return None
+    logger.error(
+        "Could not load %s as a chemically correct molecule (meeko and "
+        "template routes both failed). The pair is dropped rather than "
+        "featurised from a guessed structure.",
+        pdbqt_path,
+    )
+    return None

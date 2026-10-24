@@ -1,0 +1,75 @@
+# CancerAg canonical receptor registry.
+# Keyed by UniProt accession. All retrievers + the curator MUST join through
+# this table. The biasdb_name column matches the EXACT spelling/casing used
+# by BiasDB's data dump (Greek letters, no hyphen in 5HT1A, etc.).
+#
+# UniProt accessions are stable and load-bearing for dedup-by-pair_key.
+# ChEMBL target IDs are best-effort and used by the ChEMBL retriever.
+# GPCRdb IDs are best-effort and used by future receptor-side curation.
+# PDB IDs / AlphaFold IDs are placeholders to be filled per-receptor as the
+# structure-side pipeline (Stage 03) is wired.
+#
+# Source pinned: UniProt 2026_01.
+uniprot	gene_symbol	biasdb_name	chembl_target_id	gpcrdb_id	gpcrdb_class	gpcrdb_family	preferred_pdb_active	preferred_pdb_inactive	alphafold_id	notes
+P08908	HTR1A	5HT1A receptor	CHEMBL214	5ht1a_human	A	Aminergic			AF-P08908-F1	serotonin
+P28222	HTR1B	5HT1B receptor	CHEMBL1898	5ht1b_human	A	Aminergic			AF-P28222-F1	serotonin
+P28223	HTR2A	5HT2A receptor	CHEMBL224	5ht2a_human	A	Aminergic			AF-P28223-F1	serotonin
+P41595	HTR2B	5HT2B receptor	CHEMBL1833	5ht2b_human	A	Aminergic			AF-P41595-F1	serotonin
+P28335	HTR2C	5HT2C receptor	CHEMBL225	5ht2c_human	A	Aminergic			AF-P28335-F1	serotonin
+P34969	HTR7	5HT7 receptor	CHEMBL3155	5ht7r_human	A	Aminergic			AF-P34969-F1	serotonin
+P21728	DRD1	D1 receptor	CHEMBL2056	drd1_human	A	Aminergic			AF-P21728-F1	dopamine
+P14416	DRD2	D2 receptor	CHEMBL217	drd2_human	A	Aminergic			AF-P14416-F1	dopamine
+P35462	DRD3	D3 receptor	CHEMBL234	drd3_human	A	Aminergic			AF-P35462-F1	dopamine
+P21917	DRD4	D4 receptor	CHEMBL219	drd4_human	A	Aminergic			AF-P21917-F1	dopamine
+P11229	CHRM1	M1 receptor	CHEMBL216	acm1_human	A	Aminergic			AF-P11229-F1	muscarinic
+P08172	CHRM2	M2 receptor	CHEMBL211	acm2_human	A	Aminergic			AF-P08172-F1	muscarinic
+P20309	CHRM3	M3 receptor	CHEMBL245	acm3_human	A	Aminergic			AF-P20309-F1	muscarinic
+P25021	HRH2	H2 receptor	CHEMBL1941	hrh2_human	A	Aminergic			AF-P25021-F1	histamine
+Q9Y5N1	HRH3	H3 receptor	CHEMBL264	hrh3_human	A	Aminergic			AF-Q9Y5N1-F1	histamine
+Q9H3N8	HRH4	H4 receptor	CHEMBL3759	hrh4_human	A	Aminergic			AF-Q9H3N8-F1	histamine
+P08588	ADRB1	β1-adrenoceptor	CHEMBL213	adrb1_human	A	Aminergic			AF-P08588-F1	adrenergic
+P07550	ADRB2	β2-adrenoceptor	CHEMBL210	adrb2_human	A	Aminergic			AF-P07550-F1	adrenergic
+P35348	ADRA1A	α1A-adrenoceptor	CHEMBL229	ada1a_human	A	Aminergic			AF-P35348-F1	adrenergic
+P08913	ADRA2A	α2A-adrenoceptor	CHEMBL1867	ada2a_human	A	Aminergic			AF-P08913-F1	adrenergic
+P18825	ADRA2C	α2C-adrenoceptor	CHEMBL1916	ada2c_human	A	Aminergic			AF-P18825-F1	adrenergic
+P35372	OPRM1	μ receptor	CHEMBL233	oprm_human	A	Peptide			AF-P35372-F1	opioid
+P41143	OPRD1	δ receptor	CHEMBL236	oprd_human	A	Peptide			AF-P41143-F1	opioid
+P41145	OPRK1	κ receptor	CHEMBL237	oprk_human	A	Peptide			AF-P41145-F1	opioid
+P41146	OPRL1	NOP receptor	CHEMBL2014	oprx_human	A	Peptide			AF-P41146-F1	opioid-like nociceptin
+P30556	AGTR1	AT1 receptor	CHEMBL227	agtr1_human	A	Peptide			AF-P30556-F1	angiotensin
+Q92847	GHSR	Ghrelin receptor	CHEMBL4616	ghsr_human	A	Peptide			AF-Q92847-F1	ghrelin
+P35414	APLNR	Apelin receptor	CHEMBL5028	aplnr_human	A	Peptide			AF-P35414-F1	apelin
+P30518	AVPR2	V2 receptor	CHEMBL1956	v2r_human	A	Peptide			AF-P30518-F1	vasopressin
+P22888	LHCGR	LH receptor	CHEMBL1944	lshr_human	A	Glycoprotein hormone			AF-P22888-F1	luteinizing hormone
+P30989	NTSR1	NTS1 receptor	CHEMBL5023	ntr1_human	A	Peptide			AF-P30989-F1	neurotensin
+P21452	TACR2	NK2 receptor	CHEMBL3920	nk2r_human	A	Peptide			AF-P21452-F1	tachykinin
+P55085	F2RL1	PAR2	CHEMBL4297	par2_human	A	Peptide			AF-P55085-F1	protease-activated
+Q9HBX9	RXFP1	RXFP1	CHEMBL5321	rxfp1_human	A	Peptide			AF-Q9HBX9-F1	relaxin
+P21730	C5AR1	C5aR1	CHEMBL2710	c5ar1_human	A	Peptide			AF-P21730-F1	complement C5a
+P41597	CCR2	CCR2	CHEMBL4015	ccr2_human	A	Chemokine			AF-P41597-F1	chemokine
+P51681	CCR5	CCR5	CHEMBL274	ccr5_human	A	Chemokine			AF-P51681-F1	chemokine
+P25025	CXCR2	CXCR2	CHEMBL2434	cxcr2_human	A	Chemokine			AF-P25025-F1	chemokine
+P49682	CXCR3	CXCR3	CHEMBL2414	cxcr3_human	A	Chemokine			AF-P49682-F1	chemokine
+P61073	CXCR4	CXCR4	CHEMBL2107	cxcr4_human	A	Chemokine			AF-P61073-F1	chemokine
+P30542	ADORA1	A1 receptor	CHEMBL226	aa1r_human	A	Nucleotide			AF-P30542-F1	adenosine
+P29275	ADORA2B	A2B receptor	CHEMBL255	aa2br_human	A	Nucleotide			AF-P29275-F1	adenosine
+P0DMS8	ADORA3	A3 receptor	CHEMBL256	aa3r_human	A	Nucleotide			AF-P0DMS8-F1	adenosine
+P21554	CNR1	CB1 receptor	CHEMBL218	cnr1_human	A	Lipid			AF-P21554-F1	cannabinoid
+P34972	CNR2	CB2 receptor	CHEMBL253	cnr2_human	A	Lipid			AF-P34972-F1	cannabinoid
+Q92633	LPAR1	LPA1 receptor	CHEMBL3243	lpar1_human	A	Lipid			AF-Q92633-F1	lysophospholipid
+P21453	S1PR1	S1P1 receptor	CHEMBL4793	s1pr1_human	A	Lipid			AF-P21453-F1	sphingosine-1-phosphate
+P43116	PTGER2	EP2	CHEMBL4627	pe2r2_human	A	Lipid			AF-P43116-F1	prostaglandin E2
+Q9Y5Y4	PTGDR2	DP2 receptor	CHEMBL5071	pd2r2_human	A	Lipid			AF-Q9Y5Y4-F1	prostaglandin D2
+O14842	FFAR1	FFA1 receptor	CHEMBL4422	ffar1_human	A	Free fatty acid			AF-O14842-F1	GPR40
+O15552	FFAR2	FFA2 receptor	CHEMBL5468	ffar2_human	A	Free fatty acid			AF-O15552-F1	GPR43
+P21462	FPR1	FPR1	CHEMBL4521	fpr1_human	A	Peptide			AF-P21462-F1	formyl peptide
+P25090	FPR2	FPR2	CHEMBL4878	fpr2_human	A	Peptide			AF-P25090-F1	formyl peptide
+Q9NQS5	GPR84	GPR84	CHEMBL5658	gp84_human	A	Orphan			AF-Q9NQS5-F1	medium-chain fatty acid
+Q8TDS4	HCAR2	HCA2 receptor	CHEMBL5165	hcar2_human	A	Hydroxycarboxylic acid			AF-Q8TDS4-F1	GPR109A / niacin
+Q9HC97	GPR35	OXE receptor			A	Orphan			AF-Q9HC97-F1	OXE / OXER1 alias - verify
+Q01726	MC1R	MC1 receptor	CHEMBL4607	mc1r_human	A	Aminergic			AF-Q01726-F1	melanocortin
+P41968	MC3R	MC3 receptor	CHEMBL4644	mc3r_human	A	Aminergic			AF-P41968-F1	melanocortin
+P32245	MC4R	MC4 receptor	CHEMBL4608	mc4r_human	A	Aminergic			AF-P32245-F1	melanocortin
+P33032	MC5R	MC5 receptor		mc5r_human	A	Aminergic			AF-P33032-F1	melanocortin
+Q96LB1	MRGPRX2	MRGPRX2	CHEMBL4794	mrgx2_human	A	Mas-related			AF-Q96LB1-F1	mast cell GPCR
+P41180	CASR	CaS receptor	CHEMBL1878	casr_human	C	Calcium-sensing			AF-P41180-F1	calcium

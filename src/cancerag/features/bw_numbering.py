@@ -6,12 +6,12 @@ file, not of biology: the prolif receptors are renumbered from 1, and each
 construct has a different N-terminal length, so the *same* functional residue
 lands on a different number in every receptor.
 
-The consequence, measured on the 443-row training set: 305 of 386 contact
-columns fire for exactly one receptor, the median column fires in 2 rows, and
-the whole block carries 1.3% of model attribution. The conserved TM3 aspartate
-that anchors every aminergic ligand is split across five columns
-(ASP80/83/84/86/91), holding 20/12/13/27/6 rows instead of one column holding
-78.
+The consequence, measured on the raw ProLIF block (docs/BW_NUMBERING_AUDIT.md):
+362 of 384 contact columns fire for exactly one receptor, 295 fire in fewer
+than 5 rows, and the median column fires in 2. The conserved TM3 aspartate that
+anchors every aminergic ligand is split across five columns (ASP80/83/84/86/91).
+Remapping to generic positions gives 122 contact columns, 42 of them rebuilt
+from more than one original column.
 
 Ballesteros-Weinstein numbering labels a residue by its structural position —
 helix number, then offset from that helix's most conserved residue, which is
@@ -32,8 +32,15 @@ resolves to a residue 28 A outside a 22 A docking box; against the prolif file
 it is D3.32, the conserved salt-bridge anchor. Both lookups succeed silently,
 so the mistake shows up as implausible pharmacology rather than an error.
 
-Class A only. Receptors GPCRdb does not cover (e.g. the class C calcium-sensing
-receptor) keep their original per-structure column names and are reported.
+Class A only. Receptors GPCRdb does not cover, or whose mapping fails the
+anchor gate (e.g. the class C calcium-sensing receptor, which GPCRdb numbers
+but not with class A anchors), keep their original per-structure column names
+and are reported.
+
+The featurisation pipeline (``featurization.build_interaction_fingerprints``)
+applies :func:`remap_interaction_fingerprints` to the raw ProLIF block and
+writes ``bw_column_map.json``, ``bw_maps.json`` and ``bw_map_reports.json``
+next to the fingerprints.
 """
 
 from __future__ import annotations
@@ -42,8 +49,13 @@ import json
 import logging
 import re
 import time
+import urllib.error
 import urllib.request
+from collections.abc import Iterable, Mapping
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -77,22 +89,46 @@ def _get_json(url: str, cache_name: str, *, pause: float = 0.34):
     return payload
 
 
+def _is_absent(exc: Exception) -> bool:
+    """True when GPCRdb answered that the record does not exist.
+
+    Only a 404 means "GPCRdb does not cover this receptor". A timeout, DNS
+    failure or 5xx means "we could not ask", and must not be treated as an
+    answer: swallowing it would silently leave every receptor on its raw
+    per-structure names when the pipeline runs offline without the cache,
+    producing a fingerprint block that looks valid and is not the one shipped.
+    """
+    return isinstance(exc, urllib.error.HTTPError) and exc.code == 404
+
+
 def fetch_protein(accession: str) -> dict | None:
-    """GPCRdb protein record: entry_name + canonical sequence."""
+    """GPCRdb protein record: entry_name + canonical sequence.
+
+    Returns None when GPCRdb has no record (HTTP 404). Any other failure to
+    reach GPCRdb is raised.
+    """
     try:
         return _get_json(f"{GPCRDB}/protein/accession/{accession}/",
                          f"protein_{accession}.json")
     except Exception as exc:
+        if not _is_absent(exc):
+            raise
         logger.warning("GPCRdb has no protein record for %s (%s)", accession, exc)
         return None
 
 
 def fetch_residues(entry_name: str) -> list | None:
-    """GPCRdb residue table: sequence_number, amino_acid, display_generic_number."""
+    """GPCRdb residue table: sequence_number, amino_acid, display_generic_number.
+
+    Returns None when GPCRdb has no table (HTTP 404). Any other failure to
+    reach GPCRdb is raised.
+    """
     try:
         return _get_json(f"{GPCRDB}/residues/{entry_name}/",
                          f"residues_{entry_name}.json")
     except Exception as exc:
+        if not _is_absent(exc):
+            raise
         logger.warning("GPCRdb has no residue table for %s (%s)", entry_name, exc)
         return None
 
@@ -287,6 +323,147 @@ def parse_column(col: str) -> tuple[str, int, str, str] | None:
     return m.group(1).upper(), int(m.group(2)), m.group(3), m.group(4)
 
 
-def bw_column_name(resname: str, bw: str, interaction: str) -> str:
-    """``('ASP', '3.32', 'Cationic')`` -> ``ifp_ASP3.32_Cationic``."""
-    return f"ifp_{resname}{bw}_{interaction}"
+def bw_column_name(bw: str, interaction: str) -> str:
+    """``('3.32', 'Cationic')`` -> ``ifp_BW3.32_Cationic``.
+
+    Named by position, not residue identity: the amino acid at a generic
+    position differs between families, and embedding it would keep apart the
+    very fragments the remap exists to merge.
+    """
+    return f"ifp_BW{bw}_{interaction}"
+
+
+# ------------------------------------------------------- pipeline transform
+
+IFP_META_COLS: tuple[str, ...] = (
+    "pair_id", "inchikey", "receptor_uniprot",
+    "n_residues_contacted", "n_total_contacts",
+)
+
+
+def build_receptor_maps(
+    accessions: Iterable[str],
+    receptors_dir: Path | str,
+    *,
+    min_identity: float = 0.50,
+    min_anchors: int = 3,
+) -> tuple[dict[str, dict[int, str]], dict[str, dict]]:
+    """Run :func:`receptor_bw_map` for every receptor.
+
+    Reads ``<receptors_dir>/<accession>.prolif_H.pdb`` — the structure ProLIF
+    numbered its columns against (see the module docstring for why the
+    prepared ``.pdb`` gives silently wrong answers). A receptor without that
+    file gets an empty map and status ``no_prolif_structure``.
+
+    Returns ``(maps, reports)``, both keyed by accession. A receptor whose map
+    is empty keeps its raw column names downstream.
+    """
+    receptors_dir = Path(receptors_dir)
+    maps: dict[str, dict[int, str]] = {}
+    reports: dict[str, dict] = {}
+    for acc in sorted(set(accessions)):
+        pdb = receptors_dir / f"{acc}.prolif_H.pdb"
+        if not pdb.exists():
+            maps[acc] = {}
+            reports[acc] = {"accession": acc, "status": "no_prolif_structure",
+                            "n_mapped": 0}
+            logger.warning("BW: no %s; %s keeps raw column names", pdb.name, acc)
+            continue
+        maps[acc], reports[acc] = receptor_bw_map(
+            acc, pdb, min_identity=min_identity, min_anchors=min_anchors,
+        )
+        if not maps[acc]:
+            logger.warning("BW: %s keeps raw column names (%s)",
+                           acc, reports[acc]["status"])
+    return maps, reports
+
+
+def remap_interaction_fingerprints(
+    raw: pd.DataFrame,
+    maps: Mapping[str, Mapping[int, str]],
+    *,
+    meta_cols: Iterable[str] = IFP_META_COLS,
+    receptor_col: str = "receptor_uniprot",
+) -> tuple[pd.DataFrame, dict[str, list[str]]]:
+    """Rename raw ProLIF bit columns to Ballesteros-Weinstein positions.
+
+    For each row, a raw column ``ifp_<RES><num>.<chain>_<Interaction>`` that
+    fires is moved to ``ifp_BW<pos>_<Interaction>`` when that row's receptor
+    map assigns residue ``num`` a generic position. Bits landing on the same
+    BW column are merged with logical OR, so two construct numbers that are
+    the same structural position (D80 in one receptor, D86 in another) become
+    one column. A bit whose receptor has no map (class C, failed anchor gate,
+    no GPCRdb record) or whose residue has no generic number (loops, termini)
+    keeps its raw name — for those rows only, so a raw column that fired for
+    both a mapped and an unmapped receptor survives holding just the unmapped
+    rows. Columns that end up firing in no row are not emitted.
+
+    Meta columns pass through unchanged, including ``n_residues_contacted``
+    and ``n_total_contacts``, which count ProLIF residues and contacts before
+    merging. Output columns are the meta columns, then the bit columns sorted
+    by name, as uint8.
+
+    Returns ``(fingerprints, column_map)``, where ``column_map`` sends each BW
+    column to the sorted raw columns merged into it.
+    """
+    meta = [c for c in meta_cols if c in raw.columns]
+    bit_cols = [c for c in raw.columns if c not in meta]
+    receptors = raw[receptor_col].astype(str).to_numpy()
+
+    merged: dict[str, np.ndarray] = {}
+    column_map: dict[str, set[str]] = {}
+    n = len(raw)
+    for col in bit_cols:
+        values = raw[col].to_numpy()
+        fired = np.flatnonzero(values != 0)
+        if fired.size == 0:
+            continue
+        parsed = parse_column(col)
+        for acc in np.unique(receptors[fired]):
+            rows = fired[receptors[fired] == acc]
+            bw = maps.get(acc, {}).get(parsed[1]) if parsed else None
+            target = bw_column_name(bw, parsed[3]) if bw else col
+            arr = merged.get(target)
+            if arr is None:
+                arr = merged[target] = np.zeros(n, dtype=np.uint8)
+            arr[rows] = 1
+            if bw:
+                column_map.setdefault(target, set()).add(col)
+
+    bits = pd.DataFrame(
+        {c: merged[c] for c in sorted(merged)}, index=raw.index, dtype=np.uint8,
+    )
+    out = pd.concat([raw[meta], bits], axis=1)
+    return out, {k: sorted(v) for k, v in sorted(column_map.items())}
+
+
+def write_bw_artifacts(
+    output_dir: Path | str,
+    *,
+    column_map: Mapping[str, list[str]],
+    maps: Mapping[str, Mapping[int, str]],
+    reports: Mapping[str, dict],
+) -> dict[str, Path]:
+    """Persist the remap so it can be audited without re-running it.
+
+    - ``bw_column_map.json`` — BW column -> raw columns merged into it.
+    - ``bw_maps.json`` — accession -> {structure residue number -> BW}.
+    - ``bw_map_reports.json`` — accession -> identity, anchors, status.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    paths = {
+        "column_map": output_dir / "bw_column_map.json",
+        "maps": output_dir / "bw_maps.json",
+        "reports": output_dir / "bw_map_reports.json",
+    }
+    paths["column_map"].write_text(json.dumps(dict(column_map), indent=2,
+                                              sort_keys=True))
+    paths["maps"].write_text(json.dumps(
+        {acc: {str(k): v for k, v in sorted(m.items())}
+         for acc, m in sorted(maps.items())},
+        indent=2,
+    ))
+    paths["reports"].write_text(json.dumps(dict(sorted(reports.items())),
+                                           indent=2))
+    return paths
