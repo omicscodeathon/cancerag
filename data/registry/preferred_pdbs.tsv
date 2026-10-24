@@ -1,0 +1,62 @@
+uniprot	biasdb_name	selected_pdb	resolution	state	ligand_resname	score	reason	manual_override
+P08908	5HT1A receptor	8PJK	2.4	unknown	T7M	37.00	res=2.40A; ligand=T7M; state=unknown; chains=4; longest_chain=337; fusion=False	
+P28222	5HT1B receptor	4IAR	2.7	unknown	ERM	43.00	res=2.70A; ligand=ERM; state=unknown; chains=1; longest_chain=379; fusion=False	
+P41595	5HT2B receptor	4IB4	2.7	unknown	ERM	43.00	res=2.70A; ligand=ERM; state=unknown; chains=1; longest_chain=375; fusion=False	
+P28335	5HT2C receptor	8DPF	2.84	active	T4U	59.60	res=2.84A; ligand=T4U; state=active; chains=5; longest_chain=336; fusion=False	
+P34969	5HT7 receptor	7XTC	3.2	unknown	8K3	26.00	res=3.20A; ligand=8K3; state=unknown; chains=5; longest_chain=338; fusion=False	
+P21728	D1 receptor	7X2F	3.0	active	G4C	58.00	res=3.00A; ligand=G4C; state=active; chains=5; longest_chain=341; fusion=False	
+P14416	D2 receptor	6CM4	2.87	unknown	8NU	41.30	res=2.87A; ligand=8NU; state=unknown; chains=1; longest_chain=423; fusion=False	
+P35462	D3 receptor	3PBL	2.89	unknown	ETQ	32.10	res=2.89A; ligand=ETQ; state=unknown; chains=4; longest_chain=432; fusion=False	
+P21917	D4 receptor	5WIU	1.96	unknown	AQD	50.00	res=1.96A; ligand=AQD; state=unknown; chains=1; longest_chain=373; fusion=False	
+P11229	M1 receptor	6ZFZ	2.17	unknown	QJT	48.30	res=2.17A; ligand=QJT; state=unknown; chains=1; longest_chain=446; fusion=False	
+P08172	M2 receptor	5ZKC	2.3	unknown	3C0	47.00	res=2.30A; ligand=3C0; state=unknown; chains=1; longest_chain=384; fusion=False	
+P20309	M3 receptor	8EA0	2.56	unknown	IXO	44.40	res=2.56A; ligand=IXO; state=unknown; chains=1; longest_chain=285; fusion=False	
+P25021	H2 receptor	8POK	3.4	active	HSM	54.00	res=3.40A; ligand=HSM; state=active; chains=5; longest_chain=339; fusion=False	
+Q9Y5N1	H3 receptor	7F61	2.6	unknown	1IB	41.00	res=2.60A; ligand=1IB; state=unknown; chains=2; longest_chain=301; fusion=False	
+Q9H3N8	H4 receptor	7YFC	3.0	active	HSM	55.00	res=3.00A; ligand=HSM; state=active; chains=6; longest_chain=342; fusion=False	
+P08588	β1-adrenoceptor	8S2T	3.3	active	5FW	55.00	res=3.30A; ligand=5FW; state=active; chains=5; longest_chain=338; fusion=False	
+P07550	β2-adrenoceptor	6PS2	2.4	unknown	JTZ	46.00	res=2.40A; ligand=JTZ; state=unknown; chains=1; longest_chain=443; fusion=False	
+P35348	α1A-adrenoceptor	7YM8	2.92	unknown	J5C	34.80	res=2.92A; ligand=J5C; state=unknown; chains=3; longest_chain=271; fusion=False	
+P08913	α2A-adrenoceptor	6KUX	2.7	unknown	E3F	43.00	res=2.70A; ligand=E3F; state=unknown; chains=1; longest_chain=375; fusion=False	
+P18825	α2C-adrenoceptor	6KUW	2.8	unknown	E33	39.00	res=2.80A; ligand=E33; state=unknown; chains=2; longest_chain=474; fusion=False	
+P35372	μ receptor	8Y72	2.65	unknown	DAL	28.50	res=2.65A; ligand=DAL; state=unknown; chains=6; longest_chain=336; fusion=False	
+P41143	δ receptor	4N6H	1.8	unknown	EJ4	50.00	res=1.80A; ligand=EJ4; state=unknown; chains=1; longest_chain=408; fusion=False	
+P41145	κ receptor	8DZP	2.4	unknown	Q6Q	43.00	res=2.40A; ligand=Q6Q; state=unknown; chains=2; longest_chain=287; fusion=False	repaired: chain-identity gate; was 7UL2
+P41146	NOP receptor	5DHG	3.0	unknown	DGV	37.00	res=3.00A; ligand=DGV; state=unknown; chains=2; longest_chain=379; fusion=False	
+P30556	AT1 receptor	4ZUD	2.8	unknown	OLM	42.00	res=2.80A; ligand=OLM; state=unknown; chains=1; longest_chain=376; fusion=False	
+Q92847	Ghrelin receptor	7F9Y	2.9	active	OCA	56.00	res=2.90A; ligand=OCA; state=active; chains=6; longest_chain=338; fusion=False	
+P35414	Apelin receptor	7SUS	2.7	unknown	8EH	43.00	res=2.70A; ligand=8EH; state=unknown; chains=1; longest_chain=347; fusion=False	
+P30518	V2 receptor	7DW9	2.8	active	NH2	54.00	res=2.80A; ligand=NH2; state=active; chains=7; longest_chain=339; fusion=False	repaired: chain-identity gate; was 7KH0
+P22888	LH receptor	7FIH	3.2	active	55Z	53.00	res=3.20A; ligand=55Z; state=active; chains=6; longest_chain=550; fusion=False	
+P30989	NTS1 receptor	7UL2	2.4	unknown	Q6Q	43.00	res=2.40A; ligand=Q6Q; state=unknown; chains=2; longest_chain=287; fusion=False	
+P21452	NK2 receptor	7XWO	2.7	unknown		-22.00	res=2.70A; ligand=None; state=unknown; chains=6; longest_chain=336; fusion=False	repaired: chain-identity gate; was 7XWO
+P55085	PAR2	5NDD	2.8	unknown	8TZ	42.00	res=2.80A; ligand=8TZ; state=unknown; chains=1; longest_chain=567; fusion=False	
+Q9HBX9	RXFP1	7TMW	3.2	unknown		-21.00	res=3.20A; ligand=None; state=unknown; chains=4; longest_chain=499; fusion=False	
+P21730	C5aR1	6C1R	2.2	unknown	ACE	45.00	res=2.20A; ligand=ACE; state=unknown; chains=2; longest_chain=370; fusion=False	
+P41597	CCR2	7XA3	1.4	unknown	ACE	47.00	res=1.40A; ligand=ACE; state=unknown; chains=2; longest_chain=282; fusion=False	repaired: chain-identity gate; was 7P8X
+P51681	CCR5	7O7F	1.59	unknown	TYS	47.00	res=1.59A; ligand=TYS; state=unknown; chains=2; longest_chain=236; fusion=False	repaired: chain-identity gate; was 5YY4
+P25025	CXCR2	8XVU	3.09	unknown		-16.90	res=3.09A; ligand=None; state=unknown; chains=3; longest_chain=298; fusion=False	
+P49682	CXCR3	8K2W	3.0	unknown	FI6	37.00	res=3.00A; ligand=FI6; state=unknown; chains=2; longest_chain=285; fusion=False	
+P61073	CXCR4	3ODU	2.5	unknown	ITD	42.00	res=2.50A; ligand=ITD; state=unknown; chains=2; longest_chain=466; fusion=False	
+P30542	A1 receptor	5N2S	3.3	unknown	8K8	37.00	res=3.30A; ligand=8K8; state=unknown; chains=1; longest_chain=383; fusion=False	
+P29275	A2B receptor	7XY6	2.99	unknown	I5D	31.10	res=2.99A; ligand=I5D; state=unknown; chains=4; longest_chain=333; fusion=False	
+P0DMS8	A3 receptor	8X17	3.19	unknown	XS0	26.10	res=3.19A; ligand=XS0; state=unknown; chains=5; longest_chain=339; fusion=False	
+P21554	CB1 receptor	5U09	2.6	unknown	7DY	44.00	res=2.60A; ligand=7DY; state=unknown; chains=1; longest_chain=478; fusion=False	
+P34972	CB2 receptor	5ZTY	2.8	inactive_likely	9JU	32.00	res=2.80A; ligand=9JU; state=inactive_likely; chains=1; longest_chain=449; fusion=True	
+Q92633	LPA1 receptor	4Z35	2.9	unknown	1WV	41.00	res=2.90A; ligand=1WV; state=unknown; chains=1; longest_chain=382; fusion=False	
+P21453	S1P1 receptor	3V2Y	2.8	unknown	ML5	42.00	res=2.80A; ligand=ML5; state=unknown; chains=1; longest_chain=455; fusion=False	
+P43116	EP2	7CX2	2.8	unknown	P2E	30.00	res=2.80A; ligand=P2E; state=unknown; chains=5; longest_chain=340; fusion=False	
+Q9Y5Y4	DP2 receptor	7M8W	2.61	unknown	FLC	43.90	res=2.61A; ligand=FLC; state=unknown; chains=1; longest_chain=436; fusion=False	
+O14842	FFA1 receptor	5TZR	2.2	unknown	MK6	48.00	res=2.20A; ligand=MK6; state=unknown; chains=1; longest_chain=437; fusion=False	
+O15552	FFA2 receptor	8T3S	3.34	unknown	BUA	27.60	res=3.34A; ligand=BUA; state=unknown; chains=4; longest_chain=328; fusion=False	repaired: chain-identity gate; was 9K1D
+P21462	FPR1	7EUO	2.8	unknown		-23.00	res=2.80A; ligand=None; state=unknown; chains=6; longest_chain=336; fusion=False	repaired: chain-identity gate; was 7VFX
+P25090	FPR2	6LW5	2.8	unknown	QXV	39.00	res=2.80A; ligand=QXV; state=unknown; chains=2; longest_chain=427; fusion=False	
+Q9NQS5	GPR84	8J18	2.89	unknown	HXD	29.10	res=2.89A; ligand=HXD; state=unknown; chains=5; longest_chain=337; fusion=False	
+Q8TDS4	HCA2 receptor	8J6P	2.55	unknown	IX8	32.50	res=2.55A; ligand=IX8; state=unknown; chains=5; longest_chain=339; fusion=False	
+Q9HC97	OXE receptor	8H8J	3.2	unknown	WYB	26.00	res=3.20A; ligand=WYB; state=unknown; chains=5; longest_chain=339; fusion=False	
+Q01726	MC1 receptor	7F4F	2.9	unknown	DPN	26.00	res=2.90A; ligand=DPN; state=unknown; chains=6; longest_chain=341; fusion=False	
+P41968	MC3 receptor	8KIG	3.1	unknown	4J2	36.00	res=3.10A; ligand=4J2; state=unknown; chains=2; longest_chain=258; fusion=False	
+P32245	MC4 receptor	7PIU	2.58	active	DAL	59.20	res=2.58A; ligand=DAL; state=active; chains=6; longest_chain=337; fusion=False	
+P33032	MC5 receptor	8IOD	2.59	unknown	4J2	29.10	res=2.59A; ligand=4J2; state=unknown; chains=6; longest_chain=334; fusion=False	
+Q96LB1	MRGPRX2	7S8O	2.58	unknown	8IU	32.20	res=2.58A; ligand=8IU; state=unknown; chains=5; longest_chain=339; fusion=False	
+P41180	CaS receptor	5FBK	2.1	unknown	BCT	46.00	res=2.10A; ligand=BCT; state=unknown; chains=2; longest_chain=485; fusion=False	

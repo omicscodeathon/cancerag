@@ -41,11 +41,9 @@ docking:
   ph_for_protonation: 7.4
   redock_rmsd_threshold_angstrom: 2.5
 
-  # Binding site definition (can be overridden per receptor)
-  default_binding_site:
-    size_x: 25.0
-    size_y: 25.0
-    size_z: 25.0
+  # Box size is not set here. Stage 04 (preprocessing/binding_site.py,
+  # DEFAULT_BOX_SIZE_ANGSTROM = 22.0) writes a 22 A cube per receptor into
+  # data/processed/binding_sites.json, and docking reads the box from there.
 
 network:
   # null => retry indefinitely until success
@@ -67,8 +65,8 @@ ml_model:
   # second regime reported alongside.
   split_strategy: "scaffold"
   also_report_split: "receptor_grouped"
-  # Reproducibility under small-n: report mean +/- std across multiple seeds.
-  random_seeds: [42, 7, 1234, 99, 2024]
+  # Seeds are not set here: the CV bake-off uses model_training.SEEDS_DEFAULT
+  # = [42, 7, 13, 21, 99] (mean +/- std across seeds x folds).
   outer_cv_folds: 5
   inner_cv_folds: 5
   bootstrap_ci_n: 1000

@@ -29,12 +29,6 @@ docking:
   num_modes: 1 # Reduced from 3 (only best pose)
   num_cpu: 8 # Increased CPU usage
 
-  # Binding site definition
-  default_binding_site:
-    size_x: 20.0 # Reduced from 25.0
-    size_y: 20.0
-    size_z: 20.0
-
 ml_model:
   test_size: 0.05
   random_state: 42

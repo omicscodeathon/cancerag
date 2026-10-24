@@ -24,8 +24,9 @@ Outputs:
 - `data/processed/docking_features.csv` — one row per docking job:
   pair_key columns + pose-ensemble features + docking_confidence flag
   inherited from the receptor's Stage 04 verdict.
-- `data/processed/.docking_work/<inchikey14>__<uniprot>/` — per-job
+- `data/processed/.docking_work/<inchikey>__<uniprot>/` — per-job
   artifacts (input PDBQTs, Vina output PDBQT, dock.meta.json sidecar).
+  Keyed on the full 27-char InChIKey so stereoisomers never share one.
 - `data/processed/docking_audit.md` — per-receptor summary.
 """
 
@@ -66,7 +67,9 @@ DEFAULT_VINA_TIMEOUT_S = 1800
 
 @dataclass
 class DockingJob:
-    pair_id: str  # short identifier: inchikey14_short + receptor_uniprot
+    # "<full 27-char InChIKey>__<receptor_uniprot>"; the full key (not the
+    # 14-char connectivity block) keeps stereoisomers in separate work_dirs
+    pair_id: str
     inchikey: str
     inchikey14: str
     receptor_uniprot: str
