@@ -97,6 +97,28 @@ MODIFIED_AMINO_ACIDS: Final[frozenset[str]] = frozenset(
         "KCX",          # carbamoyl-lysine
         "LLP",          # lysine-pyridoxal-5'-phosphate
         "NEP",          # methyl-histidine
+        "TYS",          # sulfotyrosine
+    }
+)
+
+# Peptide chain terminators. They are HETATM records attached to the protein,
+# not ligands, and they are tiny -- so auto-detection happily picked one as
+# "the co-crystal ligand" and centred a 22 A docking box on it.
+#
+# Measured 2026-10-24: CCR2 (P41597) took ACE as its ligand and CCR5 (P51681)
+# took TYS. Both boxes landed outside any pocket, every pose scored ~0 kcal/mol,
+# and both receptors had already been through one "repair" pass that swapped
+# the PDB without re-checking the box. Rebuilding CCR5 from 4MBS with the
+# maraviroc box gives -6.833; CCR2 from 6GPS gives -7.321.
+#
+# TYS matters disproportionately here: sulfotyrosine is a hallmark of
+# chemokine-receptor N-termini, so this fails precisely on that family.
+TERMINAL_CAPS: Final[frozenset[str]] = frozenset(
+    {
+        "ACE",  # N-terminal acetyl cap
+        "NH2",  # C-terminal amide cap
+        "NME",  # N-methyl amide cap
+        "FOR",  # formyl cap
     }
 )
 
@@ -122,6 +144,7 @@ LIGAND_AUTO_DETECT_IGNORE: Final[frozenset[str]] = (
     | GLYCANS
     | COFACTORS
     | MODIFIED_AMINO_ACIDS
+    | TERMINAL_CAPS
     | EXTRA_BUFFERS
 )
 
