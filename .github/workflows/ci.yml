@@ -1,0 +1,85 @@
+name: CI
+
+# Until 2026-10-25 nothing ran on a pull request. `gh pr view` returned
+# `statusCheckRollup: []`, so every PR merged `CLEAN` purely because nothing
+# was configured to say otherwise -- green and absent are indistinguishable.
+# The 470 unit tests ran only when someone remembered to run them.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  # A new push supersedes the run in flight for the same ref.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python
+        # pyproject requires >=3.13; pin here so a runner image change cannot
+        # move it silently.
+        run: uv python install 3.13
+
+      - name: Sync dependencies
+        # --frozen: fail if uv.lock is out of date with pyproject rather than
+        # quietly resolving something different from what developers run.
+        run: uv sync --frozen --group dev
+
+      - name: Unit tests
+        run: uv run pytest tests/unit -q
+
+  lint:
+    name: ruff (changed files)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need the base commit to diff against.
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Sync dependencies
+        run: uv sync --frozen --group dev
+
+      - name: Ruff on the files this change touches
+        # Deliberately not repo-wide. The tree carries ~140 pre-existing ruff
+        # errors; gating on all of them would block every PR on work unrelated
+        # to it, and a check that cannot pass gets switched off. Gate on the
+        # diff so new code stays clean and the backlog is paid down separately
+        # (see the issue tracker).
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
+          mapfile -t changed < <(
+            git diff --name-only --diff-filter=ACMR "$base"...HEAD -- '*.py'
+          )
+          if [ ${#changed[@]} -eq 0 ]; then
+            echo "no Python files changed"
+            exit 0
+          fi
+          printf 'checking:\n'
+          printf '  %s\n' "${changed[@]}"
+          uv run ruff check "${changed[@]}"
