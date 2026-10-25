@@ -232,8 +232,26 @@ def probe_figures() -> dict:
 
 
 def _run_module(module: str, func: str = "main", **kwargs) -> None:
+    """Call a step's entrypoint in-process, without handing it our argv.
+
+    The entrypoints are written as `main(argv=None)` and fall through to
+    `parse_args(argv)`. With `argv=None` argparse reads `sys.argv[1:]` -- which
+    belongs to the *pipeline*, not the step. Running
+    `--from dataset_assembly --force` therefore killed the clustering step on
+    "unrecognized arguments" one step from the end of the chain, while a bare
+    `python -m cancerag.pipeline` had always worked because `sys.argv[1:]` was
+    empty. Three modules parse args this way, so the guard belongs here rather
+    than at the call sites, where the next one written would miss it.
+
+    The step is being invoked as a function; it should not see a command line.
+    """
     mod = __import__(module, fromlist=[func])
-    getattr(mod, func)(**kwargs)
+    saved = sys.argv
+    sys.argv = [module]
+    try:
+        getattr(mod, func)(**kwargs)
+    finally:
+        sys.argv = saved
 
 
 def body_curation() -> None:
