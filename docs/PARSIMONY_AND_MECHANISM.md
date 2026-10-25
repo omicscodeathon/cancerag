@@ -65,12 +65,47 @@ Three things fall out:
 The curve is flat from about k=20 onward in every regime. **The extra 5,491
 features are not carrying signal.**
 
-> **Caveat, and it is a real one.** The ranking comes from SHAP computed across
-> folds of this same dataset, not re-derived inside each fold. The absolute
-> ranked numbers are therefore optimistic — this demonstrates that a
-> parsimonious subset *exists*, not that you would find this one from a cold
-> start. A nested selection is required for an unbiased estimate, and the
-> random-control contrast is the part of this table that is not affected.
+> **The ranking above saw the test folds.** It comes from SHAP computed across
+> folds of this same dataset, not re-derived inside each fold, so the numbers
+> are optimistic. They show a parsimonious subset *exists*; they do not show
+> you would find this one from a cold start. §2b repeats the experiment with
+> selection confined to the training fold, and supersedes this table for any
+> quotable claim.
+
+### 2b. Nested selection — the honest ladder
+
+Selection moved strictly inside the training fold: fit on train with every
+feature, rank by gain, take the top k of *that* ranking, refit on train, score
+the held-out fold. Nothing about the test fold informs the choice.
+
+| k | stratified | scaffold | receptor |
+| --- | --- | --- | --- |
+| | nested / random | nested / random | nested / random |
+| 2 | 0.320 / 0.126 | 0.247 / 0.127 | 0.231 / 0.166 |
+| 11 | 0.466 / 0.228 | 0.363 / 0.199 | 0.234 / 0.177 |
+| 20 | 0.511 / 0.212 | 0.405 / 0.195 | 0.247 / 0.165 |
+| 40 | 0.521 / 0.381 | 0.435 / 0.296 | **0.258** / 0.266 |
+| 80 | 0.529 / 0.457 | 0.445 / 0.358 | 0.243 / 0.245 |
+| 320 | **0.540** / 0.491 | **0.463** / 0.370 | 0.233 / 0.242 |
+| **all 5,511** | 0.529 | 0.454 | 0.249 |
+
+**The extreme claim does not survive.** Nested k=11 is *below* the full matrix
+in every regime (0.466 vs 0.529, 0.363 vs 0.454, 0.234 vs 0.249). The optimism
+in §2 is worth roughly **0.03–0.07 macro-F1**, and it is concentrated exactly
+where the claim was strongest — at small k, where a ranking derived from the
+whole dataset has the most room to flatter itself.
+
+**What does survive.** 80–320 nested features **match or beat** all 5,511 in
+every regime: 0.540 vs 0.529 stratified, 0.463 vs 0.454 scaffold-grouped,
+0.258 vs 0.249 receptor-grouped at k=40. That is a **17–70× reduction at no
+cost** — real parsimony, an order of magnitude less dramatic than §2 implied.
+
+**And selection stops mattering under the hardest regime.** At k=40 under
+receptor-grouped, *random* features (0.266) edge out gain-ranked ones (0.258).
+Within noise either way, which is the point: once receptors are held out,
+every feature set lands near the 0.179 floor and which few hundred you choose
+makes no reliable difference. That is the same message the graph network sends
+from a different direction (§6) — the ceiling is in the data.
 
 ---
 
@@ -292,9 +327,10 @@ mutual_info, roughly 2.5 SD. Wrapper selection is not where the gain is.
 
 ## 7. What this supports
 
-1. **A parsimonious subset exists.** Eleven to twenty regime-filtered features
-   match or beat 5,511 in every regime, and two beat it under the hardest.
-   Subject to the nested-selection caveat in §2.
+1. **A parsimonious subset exists, at a few hundred features.** Under nested
+   selection, 80–320 features match or beat all 5,511 in every regime — a
+   17–70× reduction at no cost. The stronger "11 features" reading in §2 is an
+   artefact of ranking on the full dataset and does **not** survive (§2b).
 2. **The surviving features are ligand physicochemistry plus three docking
    scalars** — charge-distribution surface area, electrotopological state,
    lipophilicity, shape — with no receptor contact surviving.
