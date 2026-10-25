@@ -45,6 +45,7 @@ import traceback
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
+from collections.abc import Iterable
 from typing import Callable
 
 logger = logging.getLogger(__name__)
@@ -314,6 +315,33 @@ def body_docking() -> None:
 # ------------------------------------------------------------------- step specs
 
 
+def newest_mtime(paths: Iterable[Path]) -> float | None:
+    """Newest mtime over ``paths``, descending into directories.
+
+    A directory's own mtime only tracks its immediate entries, so a file
+    rewritten three levels down would not move it. Several steps write
+    directories (``receptors``, ``pdb``), so staleness has to look inside.
+    Returns ``None`` when nothing exists.
+    """
+    newest: float | None = None
+    for p in paths:
+        if not p.exists():
+            continue
+        if p.is_dir():
+            times = [f.stat().st_mtime for f in p.rglob("*") if f.is_file()]
+            t = max(times) if times else p.stat().st_mtime
+        else:
+            t = p.stat().st_mtime
+        newest = t if newest is None else max(newest, t)
+    return newest
+
+
+def _stamp(mtime: float | None) -> str:
+    if mtime is None:
+        return "—"
+    return datetime.fromtimestamp(mtime, timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
+
+
 @dataclass
 class StepSpec:
     name: str
@@ -322,13 +350,63 @@ class StepSpec:
     body: Callable[[], None]
     probe: Callable[[], dict] | None = None
     optional: bool = False  # a failure here does not stop the chain
+    #: Artefacts this step reads. Filled in by `build_specs` from the previous
+    #: step's outputs, since the chain is strictly sequential. Staleness then
+    #: propagates: re-running docking makes featurisation stale, which makes
+    #: dataset_assembly stale, and so on to the end.
+    inputs: list[Path] = field(default_factory=list)
+
+    def exists(self) -> bool:
+        return bool(self.outputs) and all(p.exists() for p in self.outputs)
+
+    def stale(self) -> bool:
+        """Outputs are all present, but one is older than something it derives from.
+
+        Presence is not freshness. On 2026-10-25 `ml_ready_dataset.parquet`
+        from 22:32 was built on fingerprints that were replaced at 01:18 and
+        again at 05:52; `complete()` kept reporting it done, so every later run
+        skipped the rebuild and trained on a feature matrix where 215 columns
+        no longer existed and 281 current ones were absent. Nothing in the run
+        said so. An mtime comparison is enough to catch the whole class.
+        """
+        if not self.exists():
+            return False
+        newest_in = newest_mtime(self.inputs)
+        oldest_out = min((p.stat().st_mtime for p in self.outputs
+                          if p.exists() and p.is_file()), default=None)
+        if oldest_out is None:
+            # directory-only outputs: compare against their newest content
+            oldest_out = newest_mtime(self.outputs)
+        if newest_in is None or oldest_out is None:
+            return False
+        return newest_in > oldest_out
+
+    def state(self) -> str:
+        """``"yes"``, ``"stale"`` or ``"no"`` -- what ``--list`` prints."""
+        if not self.exists():
+            return "no"
+        return "stale" if self.stale() else "yes"
 
     def complete(self) -> bool:
-        return bool(self.outputs) and all(p.exists() for p in self.outputs)
+        return self.exists() and not self.stale()
 
 
 def build_specs() -> list[StepSpec]:
-    """The chain, in dependency order."""
+    """The chain, in dependency order, with each step's inputs wired from it."""
+    specs = _chain()
+    # The stages are strictly sequential -- each consumes what the previous one
+    # writes -- so the chain itself declares the dependencies. Wiring them here
+    # rather than by hand per step keeps them from drifting out of step with
+    # the order, and lets staleness propagate the whole way down.
+    previous: StepSpec | None = None
+    for spec in specs:
+        if previous is not None:
+            spec.inputs = list(previous.outputs)
+        previous = spec
+    return specs
+
+
+def _chain() -> list[StepSpec]:
     return [
         StepSpec(
             "curation", "BiasDB → curated measurements under the six-field key",
@@ -607,6 +685,20 @@ def execute(specs: list[StepSpec], *, force: bool = False,
         if run_log:
             run_log.mark_running(spec.name)
 
+        if spec.exists() and spec.stale() and not force:
+            # Say so out loud. The run this guards against looked completely
+            # normal in the log: the step was simply skipped, and nothing
+            # recorded that its output predated the inputs it was built from.
+            logger.warning(
+                "%s: outputs exist but are older than their inputs "
+                "(newest input %s, oldest output %s) -- rebuilding",
+                spec.name,
+                _stamp(newest_mtime(spec.inputs)),
+                _stamp(min((p.stat().st_mtime for p in spec.outputs
+                            if p.exists() and p.is_file()), default=None)
+                       or newest_mtime(spec.outputs)),
+            )
+
         if spec.complete() and not force:
             res = StepResult(spec.name, "skipped",
                              started_at=started.isoformat(),
@@ -751,9 +843,9 @@ def main(argv: list[str] | None = None) -> int:
     specs = build_specs()
 
     if args.list:
-        print(f"{'step':<24} {'done':<6} outputs")
+        print(f"{'step':<24} {'built':<6} outputs")
         for s in specs:
-            print(f"{s.name:<24} {'yes' if s.complete() else 'no':<6} "
+            print(f"{s.name:<24} {s.state():<6} "
                   f"{', '.join(p.name for p in s.outputs) or '—'}")
             print(f"{'':24} {s.description}")
         return 0
