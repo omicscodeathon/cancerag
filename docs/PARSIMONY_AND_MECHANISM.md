@@ -213,20 +213,34 @@ measurements over 18 receptors, **median 2 per receptor**.
 Rather than asking a 4-way model to predict them, each was tested one-vs-rest
 under receptor-grouped CV against a 100-draw label-permutation null:
 
-| target | n pos | observed | null mean ± sd | p |
-| --- | --- | --- | --- | --- |
-| ERK | 34 | 0.5219 | 0.4843 ± 0.0132 | **0.0495** |
-| G protein selectivity | 52 | 0.4764 | 0.4778 ± 0.0165 | **0.4158** |
+| target | n pos | observed | null mean ± sd | draws | p |
+| --- | --- | --- | --- | --- | --- |
+| ERK | 34 | 0.5219 | 0.4860 ± 0.0161 | **1,000** | **0.0500** |
+| G protein selectivity | 52 | 0.4764 | 0.4778 ± 0.0165 | 100 | 0.4158 |
 
 **G-protein selectivity is indistinguishable from chance** — the observed value
-sits *below* the permutation mean. There is nothing to extract; this is a clean
-negative.
+sits *below* its permutation mean. There is nothing to extract; this is a clean
+negative, and more draws cannot change it.
 
-ERK lands on the 0.05 boundary. With 100 permutations that is fragile — one
-further extreme draw would give p = 0.059 — and the effect is +0.038 macro-F1
-over "always predict not-ERK". Read as: a weak signal that may be real, is not
-practically usable, and would need a larger permutation set and more data
-before it could be claimed.
+**ERK lands exactly on the threshold, and should not be claimed.** The observed
+0.5219 sits 0.0005 above the null's own 95th percentile (0.5214). The effect is
++0.036 macro-F1 over "always predict not-ERK", on 34 positives spread across 18
+receptors.
+
+The run to 1,000 draws is itself the argument for not claiming it. The p-value
+wandered as draws accumulated:
+
+```
+100 draws  p = 0.0495      500 draws  p = 0.0559
+200 draws  p = 0.0348      600 draws  p = 0.0566
+300 draws  p = 0.0365      800 draws  p = 0.0574
+400 draws  p = 0.0474    1,000 draws  p = 0.0500
+```
+
+It crossed 0.05 in both directions. Any conclusion drawn at 100 or at 500 draws
+would have been an artefact of where the sampling happened to stop. **Read as:
+no usable ERK signal at this sample size.** Larger n, not more permutations, is
+what would settle it.
 
 ### The well-posed contrast
 
@@ -339,9 +353,10 @@ mutual_info, roughly 2.5 SD. Wrapper selection is not where the gain is.
 4. **Bias determinants are receptor-context-specific.** Quantified by
    0.454 → 0.249, and reproduced by an independent architecture.
 5. **The four-class framing is not supported by the data.** G-protein
-   selectivity is indistinguishable from a permutation null (p = 0.42); ERK is
-   marginal (p = 0.05) and not usable. The G-protein/β-arrestin axis is
-   supported, at AUC 0.80 scaffold-grouped.
+   selectivity is indistinguishable from a permutation null (p = 0.42, observed
+   below the null mean); ERK sits exactly on the threshold at 1,000 draws
+   (p = 0.0500, 0.0005 above the null's 95th percentile) and is not claimable.
+   The G-protein/β-arrestin axis is supported, at AUC 0.80 scaffold-grouped.
 
 ## 8. What it does not support
 
