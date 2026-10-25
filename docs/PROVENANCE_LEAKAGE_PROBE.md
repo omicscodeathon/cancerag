@@ -83,6 +83,41 @@ One note on method, because the first attempt got this wrong. Joining on
 SMILES, not a real difference. The marginal distributions being identical to
 four decimal places was the tell.
 
+## `n_poses` was checked too, and is clean
+
+The probe covers columns describing *how* a pose was produced. `n_poses` sits
+on the boundary: it is the number of modes Vina returned, which is a property
+of the run, yet it is in the feature matrix and arguably says something about
+the complex. The GPU rows ran at exhaustiveness 16, so it could plausibly
+encode the engine.
+
+Measured 2026-10-25:
+
+```
+              count   mean    std   min  max
+CPU Vina      574     8.833   0.728   2    9
+Uni-Dock GPU   13     8.538   1.664   3    9
+
+CPU values: {9: 531, 8: 21, 7: 9, 5: 6, 4: 4, 6: 2, 2: 1}
+GPU values: {9: 12, 3: 1}
+```
+
+The distributions overlap almost entirely — both are dominated by 9, and the
+single GPU-only value (3) is one row. Trained alone under receptor-grouped CV:
+
+```
+n_poses alone, receptor-grouped macro-F1   0.1892
+majority-class floor                       0.1894
+```
+
+Marginally *below* the floor, which is noise. It carries no label signal and
+is not acting as a proxy for the engine, so it stays a feature.
+
+Also verified on the rebuilt matrices: `assert_provenance_is_not_a_feature`
+passes on both `ml_ready_dataset.parquet` and `dataset_holdout.parquet`, and
+none of the three provenance columns reaches `X_train_eligible.parquet`
+(478 × 2547), which is what the model actually sees.
+
 ## The gate
 
 The probe is `src/cancerag/ml/leakage_probe.py` and runs as the `leakage_probe`
