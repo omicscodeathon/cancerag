@@ -14,8 +14,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -41,13 +39,34 @@ def _safe_log_param(mlflow, key, value):
         logger.debug("log_param(%s, %s) skipped: %s", key, value, exc)
 
 
+def _record(mlflow, **kw):
+    """Open an MLflow run, nesting it when one is already active.
+
+    `cancerag.pipeline` opens a run for the pipeline as a whole, so a plain
+    `start_run` here raises "Run with UUID ... is already active" and takes
+    the `advanced` step down with it -- which is why `advanced_summary.json`
+    was never written even though Optuna had finished and its artefacts were
+    on disk.
+
+    Nesting is the right relationship, not a workaround: these per-fold and
+    per-experiment records genuinely are children of the pipeline run. Run
+    standalone (`python -m cancerag.ml.mlflow_logging`) nothing is active and
+    they stay top-level, as before.
+    """
+    return mlflow.start_run(nested=mlflow.active_run() is not None, **kw)
+
+
 def log_all_runs(*, mlruns_dir: Path | str = MLRUNS_DIR) -> dict:
     """Walk all known result files and emit MLflow runs."""
     import mlflow
     mlruns_dir = Path(mlruns_dir).resolve()
     mlruns_dir.mkdir(parents=True, exist_ok=True)
-    mlflow.set_tracking_uri(f"file://{mlruns_dir}")
-    mlflow.set_experiment("cancerag")
+    # Under an active run the tracking URI and experiment are already fixed by
+    # whoever opened it, and a nested run belongs to its parent's experiment
+    # regardless -- setting them here would only misreport where these land.
+    if mlflow.active_run() is None:
+        mlflow.set_tracking_uri(f"file://{mlruns_dir}")
+        mlflow.set_experiment("cancerag")
     n_runs = 0
 
     # 1. Bake-off CV results — one MLflow run per (model, split, fold, seed)
@@ -55,7 +74,7 @@ def log_all_runs(*, mlruns_dir: Path | str = MLRUNS_DIR) -> dict:
     if cv_path.exists():
         cv = pd.read_csv(cv_path)
         for _, row in cv.iterrows():
-            with mlflow.start_run(run_name=f"{row['model']}|{row['split']}|fold{int(row['fold'])}|s{int(row['seed'])}"):
+            with _record(mlflow, run_name=f"{row['model']}|{row['split']}|fold{int(row['fold'])}|s{int(row['seed'])}"):
                 _safe_log_param(mlflow, "model", row["model"])
                 _safe_log_param(mlflow, "split", row["split"])
                 _safe_log_param(mlflow, "fold", int(row["fold"]))
@@ -74,7 +93,7 @@ def log_all_runs(*, mlruns_dir: Path | str = MLRUNS_DIR) -> dict:
     cb_path = ML_MODELS / "baselines/chemberta/chemberta_summary.json"
     if cb_path.exists():
         cb = json.loads(cb_path.read_text())
-        with mlflow.start_run(run_name="chemberta_baseline_summary"):
+        with _record(mlflow, run_name="chemberta_baseline_summary"):
             _safe_log_param(mlflow, "model", "chemberta_logreg")
             _safe_log_param(mlflow, "checkpoint", cb.get("checkpoint"))
             _safe_log_param(mlflow, "embedding_dim", cb.get("embedding_dim"))
@@ -97,7 +116,8 @@ def log_all_runs(*, mlruns_dir: Path | str = MLRUNS_DIR) -> dict:
     if sa_path.exists():
         sa = pd.read_csv(sa_path)
         for _, row in sa.iterrows():
-            with mlflow.start_run(
+            with _record(
+                mlflow,
                 run_name=f"selector_ablation|{row['selector']}|{row['model']}|f{int(row['fold'])}"
             ):
                 _safe_log_param(mlflow, "selector", row["selector"])
@@ -119,7 +139,7 @@ def log_all_runs(*, mlruns_dir: Path | str = MLRUNS_DIR) -> dict:
         if not path.exists():
             continue
         meta = json.loads(path.read_text())
-        with mlflow.start_run(run_name=name):
+        with _record(mlflow, run_name=name):
             _safe_log_param(mlflow, "experiment", name)
             for k, v in meta.items():
                 if isinstance(v, (int, float)):
@@ -146,7 +166,7 @@ def log_all_runs(*, mlruns_dir: Path | str = MLRUNS_DIR) -> dict:
             continue
         d = pd.read_csv(path)
         for _, row in d.iterrows():
-            with mlflow.start_run(run_name=f"{name}|row{int(row.name)}"):
+            with _record(mlflow, run_name=f"{name}|row{int(row.name)}"):
                 _safe_log_param(mlflow, "experiment", name)
                 for col in d.columns:
                     val = row[col]
