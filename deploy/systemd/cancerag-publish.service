@@ -1,0 +1,6 @@
+[Unit]
+Description=Publish CancerAg run status
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/cancerag-publish

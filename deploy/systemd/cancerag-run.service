@@ -1,0 +1,36 @@
+[Unit]
+Description=CancerAg pipeline run
+After=cancerag-zenml.service
+Requires=cancerag-zenml.service
+
+# A deterministic failure must stop, not retry forever. Without these, the
+# 2026-10-25 incident: the pipeline failed at its last step, systemd restarted
+# it 60 s later, resume skipped straight back to the same step, and it failed
+# again -- 2486 times over several days on a billed c2d-standard-8, while the
+# run looked "active" the whole time.
+#
+# Two retries inside an hour, then systemd refuses to start it and the unit
+# sits in `failed`, where `systemctl status` shows it. Transient faults (a
+# fetch, an OOM) still get a second chance; a bug does not get 2486.
+StartLimitIntervalSec=3600
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+User=hallelx2
+WorkingDirectory=/home/hallelx2/cancerag
+Environment=PYTHONPATH=src
+Environment=CANCERAG_WORKERS=8
+Environment=CANCERAG_THREADS_PER_JOB=1
+Environment=ZENML_ANALYTICS_OPT_IN=false
+Environment=ZENML_STORE_URL=http://127.0.0.1:8237
+Environment=MLFLOW_TRACKING_URI=file:///home/hallelx2/cancerag/data/processed/ml_models/mlruns
+ExecStart=/usr/local/bin/uv run --with mlflow python -m cancerag.pipeline
+StandardOutput=append:/home/hallelx2/pipeline.log
+StandardError=append:/home/hallelx2/pipeline.log
+TimeoutStartSec=0
+Restart=on-failure
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
