@@ -31,15 +31,19 @@ def build_module(mod: ModuleType, art: Artefacts, out: Path) -> dict:
     _style.apply()
     fig, facts = mod.build(art)
     paths = _style.save(fig, mod.NAME, out)
+    # A module whose inputs depend on a decision the run made -- which learner
+    # won, say -- cannot name them in a constant. Those define `sources(art)`;
+    # everything else keeps the plain `SOURCES` list.
+    sources = list(mod.sources(art) if hasattr(mod, "sources") else mod.SOURCES)
     dates = {
         s: datetime.fromtimestamp(art.path(s).stat().st_mtime).strftime("%Y-%m-%d %H:%M")
-        for s in mod.SOURCES
+        for s in sources
     }
     return {
         "name": mod.NAME,
         "title": mod.TITLE,
         "description": mod.DESCRIPTION.strip(),
-        "sources": list(mod.SOURCES),
+        "sources": sources,
         "source_dates": dates,
         "facts": facts,
         "files": [p.name for p in paths],
