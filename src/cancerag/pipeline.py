@@ -173,6 +173,17 @@ def probe_dataset() -> dict:
     return {"train_rows": len(tr), "holdout_rows": len(ho), "columns": tr.shape[1]}
 
 
+def probe_leakage() -> dict:
+    d = json.loads((PROC / "leakage_probe_provenance.json").read_text())
+    return {
+        "verdict": d["verdict"],
+        "floor": round(d["floor_majority_class"], 4),
+        "provenance_grouped": round(d["provenance_receptor_grouped"], 4),
+        "margin": round(d["margin_over_floor"], 4),
+        "receptor_identity": round(d["receptor_identity_stratified"], 4),
+    }
+
+
 def probe_training() -> dict:
     d = json.loads((MODELS / "model_meta.json").read_text())
     mf = d.get("holdout_metrics", {}).get("macro_f1", {})
@@ -378,6 +389,12 @@ def build_specs() -> list[StepSpec]:
             "ml_preprocessing", "fold-internal impute, variance, correlation, scale",
             [PROC / "ml_preprocessed" / "preprocessing_meta.json"],
             lambda: _run_module("cancerag.ml.preprocessing", "run_preprocessing"),
+        ),
+        StepSpec(
+            "leakage_probe", "provenance alone must not predict the label",
+            [PROC / "leakage_probe_provenance.json"],
+            lambda: _run_module("cancerag.ml.leakage_probe"),
+            probe_leakage,
         ),
         StepSpec(
             "model_training", "four learners × three splits × five seeds, then the holdout",
