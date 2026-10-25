@@ -42,10 +42,9 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 from Bio.PDB import PDBParser
@@ -88,6 +87,107 @@ class BindingSite:
     pocket_score_fpocket: float | None = None
     confidence: str = "ok"  # "ok" | "low_confidence" | "no_pocket_found"
     notes: str = ""
+    #: Set when the centre came from ``receptor_repairs.tsv`` instead of
+    #: auto-detection, so a reader of binding_sites.json can tell which boxes
+    #: were chosen by hand and on what evidence.
+    repair_applied: bool = False
+    repair_box_source: str | None = None
+    repair_fault: str | None = None
+
+
+# ------------------------------------------------------------ hand repairs
+
+REPAIRS_TSV = "data/registry/receptor_repairs.tsv"
+
+
+@dataclass(frozen=True)
+class ReceptorRepair:
+    """One hand-verified docking box from ``receptor_repairs.tsv``."""
+
+    uniprot: str
+    receptor: str
+    pdb: str
+    chain: str
+    center: tuple[float, float, float]
+    box_source: str
+    fault: str
+    confidence: str
+
+
+def load_receptor_repairs(path: Path | str = REPAIRS_TSV) -> dict[str, ReceptorRepair]:
+    """Parse the repair registry, keyed by UniProt accession.
+
+    These are the boxes that took docking from 503 genuinely valid poses to
+    587. Auto-detection produced a box outside any pocket for each of them --
+    on a chain absent from the chosen entry, on an ``ACE`` cap, on a ``TYS``
+    sulfotyrosine -- and every pose scored about 0 kcal/mol. Re-deriving them
+    would restore exactly those faults, so the registry has to be read, not
+    merely kept.
+
+    The file opens with a ``#`` provenance preamble before the header row.
+    """
+    path = Path(path)
+    if not path.exists():
+        logger.warning("no repair registry at %s; using auto-detection only", path)
+        return {}
+
+    lines = [ln for ln in path.read_text().splitlines()
+             if ln.strip() and not ln.lstrip().startswith("#")]
+    if not lines:
+        return {}
+    header = lines[0].split("\t")
+    idx = {name: i for i, name in enumerate(header)}
+    required = ("uniprot", "pdb", "chain", "box_x", "box_y", "box_z",
+                "box_source", "fault", "confidence")
+    missing = [c for c in required if c not in idx]
+    if missing:
+        raise ValueError(f"{path}: repair registry is missing columns {missing}")
+
+    out: dict[str, ReceptorRepair] = {}
+    for ln in lines[1:]:
+        f = ln.split("\t")
+        if len(f) < len(header):
+            raise ValueError(f"{path}: short row: {ln!r}")
+        acc = f[idx["uniprot"]].strip()
+        out[acc] = ReceptorRepair(
+            uniprot=acc,
+            receptor=f[idx["receptor"]].strip() if "receptor" in idx else "",
+            pdb=f[idx["pdb"]].strip(),
+            chain=f[idx["chain"]].strip(),
+            center=(float(f[idx["box_x"]]), float(f[idx["box_y"]]),
+                    float(f[idx["box_z"]])),
+            box_source=f[idx["box_source"]].strip(),
+            fault=f[idx["fault"]].strip(),
+            confidence=f[idx["confidence"]].strip(),
+        )
+    return out
+
+
+def apply_repair(site: BindingSite, repair: ReceptorRepair,
+                 box_size_angstrom: float) -> BindingSite:
+    """Replace an auto-detected centre with the hand-verified one.
+
+    The box size is unchanged -- the repairs recorded a centre, not a size --
+    and the repair's own ``confidence`` is carried through rather than being
+    normalised to ``ok``. P55085 is ``PROVISIONAL``: it was chosen by docking
+    outcome rather than from the literature, and that has to stay visible in
+    the artefact instead of being laundered into a plain value.
+    """
+    cx, cy, cz = repair.center
+    return replace(
+        site,
+        pdb_id=repair.pdb,
+        method="registry_repair",
+        center_x=cx, center_y=cy, center_z=cz,
+        size_x=box_size_angstrom, size_y=box_size_angstrom,
+        size_z=box_size_angstrom,
+        confidence=repair.confidence,
+        repair_applied=True,
+        repair_box_source=repair.box_source,
+        repair_fault=repair.fault,
+        notes=(f"{site.notes} | " if site.notes else "")
+              + f"box from {REPAIRS_TSV}: {repair.box_source}",
+    )
 
 
 # ---------------------------------------------- co-crystal ligand detection
@@ -271,6 +371,7 @@ def define_all_binding_sites(
     receptors_dir: Path | str = "data/processed/receptors",
     raw_pdb_dir: Path | str = "data/pdb",
     preferred_pdbs_tsv: Path | str = "data/registry/preferred_pdbs.tsv",
+    repairs_tsv: Path | str = REPAIRS_TSV,
     output_path: Path | str = "data/processed/binding_sites.json",
     audit_path: Path | str = "data/processed/binding_sites_audit.md",
     *,
@@ -293,6 +394,8 @@ def define_all_binding_sites(
             continue
         uniprot, biasdb_name, selected_pdb = parts[0], parts[1], parts[2]
         chosen[uniprot] = (selected_pdb, biasdb_name)
+
+    repairs = load_receptor_repairs(repairs_tsv)
 
     results: list[BindingSite] = []
     for prepared in prepared_receptor_pdbs(receptors_dir):
@@ -318,6 +421,16 @@ def define_all_binding_sites(
             agreement_threshold_angstroms=agreement_threshold_angstroms,
             work_dir=work_root / uniprot,
         )
+        repair = repairs.pop(uniprot, None)
+        if repair is not None:
+            auto = (site.center_x, site.center_y, site.center_z)
+            site = apply_repair(site, repair, box_size_angstrom)
+            logger.warning(
+                "%s (%s): box from the repair registry %s -- auto-detection "
+                "gave (%.1f,%.1f,%.1f), which %s",
+                uniprot, biasdb_name, repair.box_source, *auto, repair.fault,
+            )
+
         results.append(site)
         logger.info(
             "%s (%s): method=%s confidence=%s center=(%.1f,%.1f,%.1f)",
@@ -325,11 +438,28 @@ def define_all_binding_sites(
             site.center_x, site.center_y, site.center_z,
         )
 
+    # Anything left in `repairs` named a receptor that was not walked. Silently
+    # ignoring it is the failure this whole change exists to stop: the registry
+    # would look applied while the broken box went to docking.
+    if repairs:
+        raise ValueError(
+            f"{repairs_tsv} has repairs for receptors that were not processed: "
+            f"{sorted(repairs)}. Either the accession is wrong or the prepared "
+            f"receptor is missing from {receptors_dir}. Refusing to write "
+            "binding sites that silently drop a hand-verified box."
+        )
+
+    applied = [b for b in results if b.repair_applied]
+    logger.info("binding sites: %d receptors, %d boxes from the repair registry",
+                len(results), len(applied))
+
     payload = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "config": {
             "box_size_angstrom": box_size_angstrom,
             "agreement_threshold_angstroms": agreement_threshold_angstroms,
+            "repairs_tsv": str(repairs_tsv),
+            "repairs_applied": sorted(b.uniprot for b in applied),
         },
         "binding_sites": [asdict(b) for b in results],
     }
@@ -419,6 +549,37 @@ def _emit_audit(payload: dict, out_path: Path) -> None:
     for k, v in sorted(payload["totals"]["by_confidence"].items()):
         md.append(f"  - {k}: {v}")
     md.append("")
+
+    repaired = [s for s in payload["binding_sites"] if s.get("repair_applied")]
+    if repaired:
+        md += [
+            "## Boxes taken from the repair registry",
+            "",
+            "Auto-detection produced a box outside any pocket for each of these, "
+            "and every pose scored about 0 kcal/mol. The centres below were "
+            "verified by hand and are recorded in "
+            f"`{payload['config'].get('repairs_tsv', REPAIRS_TSV)}`; this run "
+            "read them rather than re-deriving them.",
+            "",
+            "| uniprot | box source | confidence | what auto-detection got wrong |",
+            "| --- | --- | --- | --- |",
+        ]
+        for s in repaired:
+            md.append(
+                f"| {s['uniprot']} | {s.get('repair_box_source') or '—'} | "
+                f"{s['confidence']} | {s.get('repair_fault') or '—'} |"
+            )
+        provisional = [s for s in repaired if s["confidence"] == "PROVISIONAL"]
+        if provisional:
+            md += [
+                "",
+                "> **Provisional:** "
+                + ", ".join(s["uniprot"] for s in provisional)
+                + " — chosen by docking outcome rather than from the "
+                  "literature, and not yet independently verified.",
+            ]
+        md.append("")
+
     md.append("## Per-receptor box")
     md.append("")
     md.append(
@@ -437,10 +598,79 @@ def _emit_audit(payload: dict, out_path: Path) -> None:
     out_path.write_text("\n".join(md))
 
 
+def apply_repairs_to_file(
+    path: Path | str = "data/processed/binding_sites.json",
+    repairs_tsv: Path | str = REPAIRS_TSV,
+    *,
+    box_size_angstrom: float = DEFAULT_BOX_SIZE_ANGSTROM,
+    audit_path: Path | str | None = None,
+    backup_suffix: str | None = None,
+) -> dict:
+    """Write the registry's boxes into an existing ``binding_sites.json``.
+
+    Deliberately not a re-run. Re-deriving every box would also recompute the
+    55 receptors that were never repaired, and those boxes are what docking
+    actually used -- P2Rank on a slightly different input could move them, and
+    the artefact would then misrepresent the poses on disk in a new way.
+    Overriding in place changes exactly the six rows the registry names and
+    leaves every other byte alone.
+
+    This is needed because the repairs were applied at docking time and never
+    written back: measured 2026-10-25, `binding_sites.json` still carried the
+    auto-detected centres, with P41597 and P51681 at (0, 0, 0) and
+    `no_pocket_found`, while the poses for those receptors score -7.321 and
+    -6.833. The file described a run that did not happen.
+    """
+    import shutil
+
+    path = Path(path)
+    if backup_suffix:
+        backup = path.with_name(path.name + backup_suffix)
+        if not backup.exists():
+            shutil.copy2(path, backup)
+    payload = json.loads(path.read_text())
+    repairs = load_receptor_repairs(repairs_tsv)
+
+    sites = [BindingSite(**{k: v for k, v in s.items()
+                            if k in BindingSite.__dataclass_fields__})
+             for s in payload["binding_sites"]]
+    known = {s.uniprot for s in sites}
+    unknown = sorted(set(repairs) - known)
+    if unknown:
+        raise ValueError(
+            f"{repairs_tsv} names receptors absent from {path}: {unknown}")
+
+    changed = []
+    out: list[BindingSite] = []
+    for site in sites:
+        repair = repairs.get(site.uniprot)
+        if repair is None:
+            out.append(site)
+            continue
+        before = (site.center_x, site.center_y, site.center_z)
+        fixed = apply_repair(site, repair, box_size_angstrom)
+        after = (fixed.center_x, fixed.center_y, fixed.center_z)
+        changed.append((site.uniprot, before, after, site.method))
+        out.append(fixed)
+
+    for acc, before, after, was in changed:
+        logger.warning(
+            "%s: %s -> registry box; (%.3f,%.3f,%.3f) was %s, now "
+            "(%.3f,%.3f,%.3f)", acc, was, *before, was, *after)
+
+    payload["binding_sites"] = [asdict(b) for b in out]
+    payload.setdefault("config", {})["repairs_tsv"] = str(repairs_tsv)
+    payload["config"]["repairs_applied"] = sorted(a for a, *_ in changed)
+    return write_binding_sites(payload, path, audit_path=audit_path)
+
+
 def main(argv: list[str] | None = None) -> None:
     """``python -m cancerag.preprocessing.binding_site`` defines every box;
     ``... recompute-totals [--path P] [--audit A] [--backup-suffix S]`` only
-    re-derives the summary block of an existing file."""
+    re-derives the summary block of an existing file;
+    ``... apply-repairs [--path P] [--audit A] [--backup-suffix S]`` writes the
+    registry's hand-verified boxes into an existing file without re-deriving
+    the rest."""
     import argparse
 
     ap = argparse.ArgumentParser(description="Stage 04 binding-site definition")
@@ -451,6 +681,14 @@ def main(argv: list[str] | None = None) -> None:
     rt.add_argument("--audit", default=None,
                     help="also regenerate this audit markdown from the file")
     rt.add_argument("--backup-suffix", default=None)
+
+    ar = sub.add_parser("apply-repairs",
+                        help="write the registry's boxes into an existing file")
+    ar.add_argument("--path", default="data/processed/binding_sites.json")
+    ar.add_argument("--repairs", default=REPAIRS_TSV)
+    ar.add_argument("--audit", default="data/processed/binding_sites_audit.md")
+    ar.add_argument("--backup-suffix", default=None)
+
     args = ap.parse_args(argv)
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
@@ -460,6 +698,12 @@ def main(argv: list[str] | None = None) -> None:
             args.path, audit_path=args.audit, backup_suffix=args.backup_suffix,
         )
         print(json.dumps(out["totals"], indent=2))
+    elif args.cmd == "apply-repairs":
+        out = apply_repairs_to_file(
+            args.path, args.repairs, audit_path=args.audit,
+            backup_suffix=args.backup_suffix,
+        )
+        print(json.dumps(out.get("config", {}), indent=2))
     else:
         define_all_binding_sites()
 
