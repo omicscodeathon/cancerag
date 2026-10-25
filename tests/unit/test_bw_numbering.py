@@ -106,9 +106,10 @@ class TestRemap:
         out, _ = bw.remap_interaction_fingerprints(raw, {"R1": {80: "3.32"}})
         assert {"ifp_BW3.32_VdWContact", "ifp_BW3.32_HBDonor"} <= set(out.columns)
 
-    def test_class_c_receptor_keeps_raw_names(self):
+    def test_class_c_receptor_keeps_residue_names_under_its_accession(self):
         # The calcium-sensing receptor fails the anchor gate, so its map is
-        # empty and its columns pass through untouched.
+        # empty and its residue numbers stay construct numbers -- qualified by
+        # accession, because they mean nothing outside P41180.
         raw = _frame([
             {"pair_id": "a", "receptor_uniprot": "P41180",
              "ifp_PHE149.A_VdWContact": 1, **META},
@@ -117,9 +118,10 @@ class TestRemap:
         ])
         out, cmap = bw.remap_interaction_fingerprints(
             raw, {"P41180": {}, "R1": {80: "3.32"}})
-        assert out["ifp_PHE149.A_VdWContact"].tolist() == [1, 0]
+        assert out["ifp_P41180_PHE149.A_VdWContact"].tolist() == [1, 0]
         assert out["ifp_BW3.32_VdWContact"].tolist() == [0, 1]
-        assert "ifp_PHE149.A_VdWContact" not in sum(cmap.values(), [])
+        assert "ifp_PHE149.A_VdWContact" not in out.columns
+        assert "ifp_P41180_PHE149.A_VdWContact" not in sum(cmap.values(), [])
 
     def test_shared_raw_column_is_split_by_receptor(self):
         # Residue 80 is 3.32 in R1, but R2 has no map: the raw column must
@@ -132,17 +134,60 @@ class TestRemap:
         ])
         out, _ = bw.remap_interaction_fingerprints(
             raw, {"R1": {80: "3.32"}, "R2": {}})
-        assert out["ifp_ASP80.A_VdWContact"].tolist() == [0, 1]
+        assert out["ifp_R2_ASP80.A_VdWContact"].tolist() == [0, 1]
         assert out["ifp_BW3.32_VdWContact"].tolist() == [1, 0]
+        assert "ifp_ASP80.A_VdWContact" not in out.columns
 
-    def test_residue_without_generic_number_keeps_raw_name(self):
+    def test_residue_without_generic_number_is_qualified_by_receptor(self):
         raw = _frame([
             {"pair_id": "a", "receptor_uniprot": "R1",
              "ifp_LYS17.A_VdWContact": 1, **META},
         ])
         out, cmap = bw.remap_interaction_fingerprints(raw, {"R1": {80: "3.32"}})
-        assert out["ifp_LYS17.A_VdWContact"].tolist() == [1]
+        assert out["ifp_R1_LYS17.A_VdWContact"].tolist() == [1]
         assert cmap == {}
+
+    def test_same_residue_number_in_two_receptors_does_not_merge(self):
+        # HAL-4134. Glu150 is an unmapped contact in both the kappa-opioid
+        # receptor and H4; before the accession prefix they shared a column,
+        # so a model could learn one "GLU150" pattern spanning two unrelated
+        # positions, and receptor-grouped CV leaked through it.
+        raw = _frame([
+            {"pair_id": "a", "receptor_uniprot": "P41145",
+             "ifp_GLU150.A_Hydrophobic": 1, **META},
+            {"pair_id": "b", "receptor_uniprot": "Q9H3N8",
+             "ifp_GLU150.A_Hydrophobic": 1, **META},
+        ])
+        out, _ = bw.remap_interaction_fingerprints(
+            raw, {"P41145": {}, "Q9H3N8": {}})
+        assert out["ifp_P41145_GLU150.A_Hydrophobic"].tolist() == [1, 0]
+        assert out["ifp_Q9H3N8_GLU150.A_Hydrophobic"].tolist() == [0, 1]
+        assert "ifp_GLU150.A_Hydrophobic" not in out.columns
+
+    def test_no_unmapped_column_fires_for_more_than_one_receptor(self):
+        # The invariant HAL-4134 exists to hold: only a BW column may be
+        # shared, because only a BW position means the same thing twice.
+        raw = _frame([
+            {"pair_id": "a", "receptor_uniprot": "R1",
+             "ifp_ASP80.A_VdWContact": 1, "ifp_GLU150.A_Hydrophobic": 1,
+             **META},
+            {"pair_id": "b", "receptor_uniprot": "R2",
+             "ifp_ASP86.A_VdWContact": 1, "ifp_GLU150.A_Hydrophobic": 1,
+             **META},
+        ])
+        out, _ = bw.remap_interaction_fingerprints(
+            raw, {"R1": {80: "3.32"}, "R2": {86: "3.32"}})
+        receptors = out["receptor_uniprot"].to_numpy()
+        for col in out.columns:
+            if col in bw.IFP_META_COLS:
+                continue
+            fired = set(receptors[out[col].to_numpy() != 0])
+            if len(fired) > 1:
+                assert col.startswith("ifp_BW"), (
+                    f"{col} fires for {sorted(fired)} but is not BW-mapped; "
+                    "construct numbers are not comparable across receptors"
+                )
+        assert out["ifp_BW3.32_VdWContact"].tolist() == [1, 1]
 
     def test_meta_passes_through_and_column_order(self):
         raw = _frame([
@@ -152,7 +197,8 @@ class TestRemap:
         ])
         out, _ = bw.remap_interaction_fingerprints(raw, {"R1": {80: "3.32"}})
         assert list(out.columns) == [
-            *bw.IFP_META_COLS, "ifp_ALA5.A_VdWContact", "ifp_BW3.32_VdWContact"]
+            *bw.IFP_META_COLS,
+            "ifp_BW3.32_VdWContact", "ifp_R1_ALA5.A_VdWContact"]
         assert out.loc[0, "n_residues_contacted"] == 7
         assert out.loc[0, "n_total_contacts"] == 9
 
@@ -166,6 +212,10 @@ class TestRemap:
 
     def test_bw_column_name_is_by_position_not_residue(self):
         assert bw.bw_column_name("3.32", "HBDonor") == "ifp_BW3.32_HBDonor"
+
+    def test_unmapped_column_name_inserts_the_accession(self):
+        assert (bw.unmapped_column_name("P41145", "ifp_GLU150.A_Hydrophobic")
+                == "ifp_P41145_GLU150.A_Hydrophobic")
 
 
 # ------------------------------------------------------------- anchor gate
@@ -275,7 +325,7 @@ class TestPipelineWiring:
         out = featurization.apply_bw_remap(raw, receptors, tmp_path)
 
         assert out["ifp_BW3.32_VdWContact"].tolist() == [1, 1, 0]
-        assert out["ifp_PHE149.A_VdWContact"].tolist() == [0, 0, 1]
+        assert out["ifp_P41180_PHE149.A_VdWContact"].tolist() == [0, 0, 1]
         cmap = json.loads((tmp_path / "bw_column_map.json").read_text())
         assert cmap == {"ifp_BW3.32_VdWContact": [
             "ifp_ALA105.A_VdWContact", "ifp_ALA205.A_VdWContact"]}

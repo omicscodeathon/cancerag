@@ -333,6 +333,25 @@ def bw_column_name(bw: str, interaction: str) -> str:
     return f"ifp_BW{bw}_{interaction}"
 
 
+def unmapped_column_name(accession: str, col: str) -> str:
+    """``('P41145', 'ifp_GLU150.A_Hydrophobic')`` -> ``ifp_P41145_GLU150.A_Hydrophobic``.
+
+    A raw ProLIF column names a residue by its *construct* number, which is a
+    property of one PDB entry and means nothing across receptors. Where a BW
+    position is available that number is replaced by one; where it is not, the
+    column has to carry the receptor instead, or two receptors that happen to
+    share a residue number share a feature.
+
+    Measured 2026-10-25: Glu150 is an unmapped contact in both P41145
+    (kappa-opioid) and Q9H3N8 (H4), and 8 of 235 unmapped columns fired for
+    more than one receptor. Merging them invents a pattern that spans two
+    unrelated positions, and under receptor-grouped CV it ties a held-out
+    receptor to a training one through a shared column.
+    """
+    stem = col[4:] if col.startswith("ifp_") else col
+    return f"ifp_{accession}_{stem}"
+
+
 # ------------------------------------------------------- pipeline transform
 
 IFP_META_COLS: tuple[str, ...] = (
@@ -394,9 +413,12 @@ def remap_interaction_fingerprints(
     the same structural position (D80 in one receptor, D86 in another) become
     one column. A bit whose receptor has no map (class C, failed anchor gate,
     no GPCRdb record) or whose residue has no generic number (loops, termini)
-    keeps its raw name — for those rows only, so a raw column that fired for
-    both a mapped and an unmapped receptor survives holding just the unmapped
-    rows. Columns that end up firing in no row are not emitted.
+    goes to ``ifp_<accession>_<RES><num>.<chain>_<Interaction>`` instead — the
+    construct number alone is not comparable across receptors, so the column
+    has to name the receptor it belongs to. That also keeps the two paths
+    disjoint: a raw column that fired for both a mapped and an unmapped
+    receptor splits cleanly rather than one shadowing the other. Columns that
+    end up firing in no row are not emitted.
 
     Meta columns pass through unchanged, including ``n_residues_contacted``
     and ``n_total_contacts``, which count ProLIF residues and contacts before
@@ -422,7 +444,8 @@ def remap_interaction_fingerprints(
         for acc in np.unique(receptors[fired]):
             rows = fired[receptors[fired] == acc]
             bw = maps.get(acc, {}).get(parsed[1]) if parsed else None
-            target = bw_column_name(bw, parsed[3]) if bw else col
+            target = (bw_column_name(bw, parsed[3]) if bw
+                      else unmapped_column_name(acc, col))
             arr = merged.get(target)
             if arr is None:
                 arr = merged[target] = np.zeros(n, dtype=np.uint8)
