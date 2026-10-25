@@ -14,29 +14,39 @@ from . import _style as S
 from ._data import Artefacts
 
 NAME = "fig05_calibration"
-TITLE = "Per-class reliability diagrams, calibrated random forest, temporal holdout"
+TITLE = "Per-class reliability diagrams, calibrated final model, temporal holdout"
 DESCRIPTION = """
-One-vs-rest reliability diagrams for the isotonic-calibrated random forest on
-the temporal holdout. Holdout probabilities are not persisted, so they are
-recomputed by loading the saved calibrated model and scoring the holdout
-parquet; the build asserts that the recomputed class predictions match
-`holdout_predictions.csv` row for row and that the mean Brier score matches
-`model_meta.json`. Each class's predictions are split into eight
+One-vs-rest reliability diagrams for the isotonic-calibrated final model on
+the temporal holdout. The learner is whichever one the bake-off selected, read
+from `selection_decision.json` rather than named here, and its identity and the
+holdout size are reported among the key numbers below. Holdout probabilities
+are not persisted, so they are recomputed by loading the saved calibrated model
+and scoring the holdout parquet; the build asserts that the recomputed class
+predictions match `holdout_predictions.csv` row for row and that the mean Brier
+score matches `model_meta.json`. Each class's predictions are split into eight
 equal-count (quantile) bins, because the calibrated probabilities occupy a
-narrow range and equal-width bins leave most of the axis empty; the shaded band is the 2.5–97.5 % range of the per-bin
-observed frequency over 1,000 bootstrap resamples of the holdout. Each bin
-holds about 21 of the 172 holdout rows. Bins with fewer than three
-samples are not drawn. Axes are zoomed per class to the range the
-predictions occupy (the diagonal is still y = x), so the rare-class panels
-are legible.
+narrow range and equal-width bins leave most of the axis empty; the shaded band
+is the 2.5–97.5 % range of the per-bin observed frequency over 1,000 bootstrap
+resamples of the holdout. Bins with fewer than three samples are not drawn.
+Axes are zoomed per class to the range the predictions occupy (the diagonal is
+still y = x), so the rare-class panels are legible.
 """
+
+# Static inputs. The calibrated model is not among them: which file that is
+# depends on which learner won, so it is resolved per run in `sources()`.
 SOURCES = [
-    "processed/ml_models/random_forest_final_calibrated.joblib",
     "processed/ml_ready_dataset.parquet",
     "holdout/dataset_holdout.parquet",
     "processed/ml_models/holdout_predictions.csv",
     "processed/ml_models/model_meta.json",
+    "processed/ml_models/selection_decision.json",
 ]
+
+
+def sources(art: Artefacts) -> list[str]:
+    """Inputs for this run, with the selected model's artefact resolved."""
+    return [art.calibrated_model_rel, *SOURCES]
+
 
 N_BINS = 8
 N_BOOT = 1000
@@ -47,7 +57,7 @@ def holdout_probabilities(art: Artefacts):
     """Recompute calibrated holdout probabilities exactly as model_training did."""
     from cancerag.ml.preprocessing import get_X_y_groups
 
-    model = joblib.load(art.path(SOURCES[0]))
+    model = joblib.load(art.path(art.calibrated_model_rel))
     tr, ho = art.train, art.holdout
     le = LabelEncoder().fit(tr["bias_category"].astype(str))
     assert list(le.classes_) == art.model_meta["label_classes"]
@@ -58,7 +68,7 @@ def holdout_probabilities(art: Artefacts):
             hX[c] = 0.0
     hX = hX[X.columns]
     proba = model.predict_proba(hX)
-    ref = art.csv(SOURCES[3])
+    ref = art.csv("processed/ml_models/holdout_predictions.csv")
     model_pred = le.classes_[model.predict(hX)]
     if not (model_pred == ref.y_pred.values).all():
         raise AssertionError("recomputed predictions differ from holdout_predictions.csv")
@@ -77,7 +87,12 @@ def build(art: Artefacts):
     rng = np.random.default_rng(42)
     order = ["G protein", "β Arrestin", "ERK", "G protein selectivity"]
     fig, axes = plt.subplots(1, 4, figsize=(7.2, 2.35))
-    facts = {"mean Brier": f"{mean_brier:.3f}"}
+    n_holdout = len(y)
+    facts = {
+        "selected model": art.selected_model,
+        "holdout rows": n_holdout,
+        "mean Brier": f"{mean_brier:.3f}",
+    }
     for ax, cname, letter in zip(axes, order, "abcd"):
         i = classes.index(cname)
         p, t = proba[:, i], (y == i).astype(int)
@@ -114,7 +129,8 @@ def build(art: Artefacts):
         ticks = np.linspace(0, lim, 3)
         ax.set_xticks(ticks)
         ax.set_yticks(ticks)
-        ax.set_title(f"{S.CLASS_LABEL[cname]}\nn = {int(t.sum())} of 172, Brier {brier[cname]:.3f}",
+        ax.set_title(f"{S.CLASS_LABEL[cname]}\nn = {int(t.sum())} of {n_holdout}, "
+                     f"Brier {brier[cname]:.3f}",
                      fontsize=S.FS_SMALL, fontweight="normal", color=S.TEXT_PRIMARY)
         ax.set_xlabel("Predicted probability")
         S.panel_label(ax, letter, x=-0.12, y=1.12)

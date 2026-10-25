@@ -87,6 +87,21 @@ class Artefacts:
     def model_meta(self) -> dict:
         return self.json("processed/ml_models/model_meta.json")
 
+    # ---- the selected model --------------------------------------------
+    # Which learner wins is a decision the run makes, not a constant. A figure
+    # that names one in a literal path is right only until the bake-off picks
+    # something else -- and then it does not fail with "the model changed", it
+    # fails with "file not found", which reads like a missing artefact.
+    @cached_property
+    def selected_model(self) -> str:
+        """The learner `model_training` chose, e.g. ``"lightgbm"``."""
+        return self.json("processed/ml_models/selection_decision.json")["chosen"]
+
+    @cached_property
+    def calibrated_model_rel(self) -> str:
+        """Path (relative to ``data/``) of the selected model's calibrated fit."""
+        return f"processed/ml_models/{self.selected_model}_final_calibrated.joblib"
+
     @cached_property
     def receptor_names(self) -> dict[str, str]:
         """UniProt accession -> BiasDB receptor name (from binding_sites.json)."""
