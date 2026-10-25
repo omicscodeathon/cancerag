@@ -1,0 +1,14 @@
+[Unit]
+Description=ZenML server for the CancerAg pipeline
+After=network-online.target
+
+[Service]
+User=hallelx2
+WorkingDirectory=/home/hallelx2/cancerag
+Environment=ZENML_ANALYTICS_OPT_IN=false
+ExecStart=/usr/local/bin/uv run zenml login --local --port 8237 --blocking
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

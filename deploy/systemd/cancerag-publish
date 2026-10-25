@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Mirror the run's status and a tail of its log to the run bucket, so progress
+# is readable without an SSH session. Installed at /usr/local/bin/cancerag-publish.
+#
+# Only the tail is uploaded: pipeline.log is append-only across every run and
+# reached 101 MB by 2026-10-25, so copying it whole every 60 s would be the most
+# expensive thing on the box.
+B="$(curl -sf -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/instance/attributes/cancerag-bucket)"
+S="/home/hallelx2/cancerag/data/processed/pipeline_runs/status.json"
+[ -f "$S" ] && gcloud storage cp "$S" "$B/status.json" --quiet 2>/dev/null
+tail -c 200000 /home/hallelx2/pipeline.log 2>/dev/null | gcloud storage cp - "$B/pipeline.log" --quiet 2>/dev/null
