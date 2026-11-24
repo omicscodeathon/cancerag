@@ -30,11 +30,13 @@ def manuscript_figure_numbers(out: Path) -> dict[str, str]:
     if path is None:
         return {}
     text = path.read_text()
-    out: dict[str, str] = {}
+    # Not named ``out``: that is this function's Path parameter, and shadowing
+    # it here means any later use of the directory silently reads a dict.
+    found: dict[str, str] = {}
     for m in re.finditer(r"\*\*Figure (\d+) \|.*?\n<!--fig:([^>]+)-->", text):
         for f in m.group(2).split(","):
-            out[Path(f.strip()).stem] = f"Figure {m.group(1)}"
-    return out
+            found[Path(f.strip()).stem] = f"Figure {m.group(1)}"
+    return found
 
 
 def _fmt(v) -> str:
