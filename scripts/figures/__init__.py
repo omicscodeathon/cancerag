@@ -35,6 +35,7 @@ MODULE_NAMES = [
     "fig13_stacking_architecture",
     "fig14_unsupervised_clustering",
     "fig15_shap_cross_regime",
+    "fig16_contact_census",
 ]
 
 # Figures from the old set whose content was wrong and that no module rebuilds.
