@@ -25,7 +25,22 @@ SOURCES = [
     "holdout/dataset_holdout.parquet",
     "processed/ml_models/model_meta.json",
     "processed/ml_models/cv_results_long.csv",
+    "registry/receptor_repairs.tsv",
 ]
+
+
+def _repaired_receptors(art: Artefacts) -> set[str]:
+    """Receptors whose binding site came from the manual repair registry.
+
+    The site-assignment method is read from the registry rather than from a
+    ``method`` string in ``binding_sites.json``, because the registry is the
+    thing the binding-site step actually consults and is versioned with the
+    repo; a ``binding_sites.json`` written before the repairs landed carries
+    the pre-repair label and would silently understate them.
+    """
+    rows = pd.read_csv(art.path("registry/receptor_repairs.tsv"), sep="\t",
+                       comment="#")
+    return set(rows.uniprot.dropna().astype(str))
 
 
 def pipeline_counts(art: Artefacts) -> dict:
@@ -61,7 +76,9 @@ def pipeline_counts(art: Artefacts) -> dict:
             f"funnel replay ends at {len(labelled)} rows, parquets hold {len(tr) + len(ho)}")
 
     sites = art.json("processed/binding_sites.json")["binding_sites"]
-    methods = Counter(s["method"] for s in sites)
+    repaired = _repaired_receptors(art)
+    methods = Counter("registry_repair" if s["uniprot"] in repaired else s["method"]
+                      for s in sites)
     redock = art.json("processed/redock_validation.json")["totals"]
     meta = art.model_meta
     cv = art.csv("processed/ml_models/cv_results_long.csv")

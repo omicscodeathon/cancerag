@@ -15,7 +15,7 @@ from . import RETIRED, all_modules
 from ._cli import build_module, parser
 from ._data import REPO_ROOT, Artefacts, MissingArtefact
 
-MANUSCRIPT_NAME = "CancerAg_NatComms_IMRaD.md"
+MANUSCRIPT_NAME = "source/CancerAg.md"
 
 
 def manuscript_figure_numbers(out: Path) -> dict[str, str]:
