@@ -13,17 +13,35 @@ NAME = "fig08_ablation"
 TITLE = "Block-wise ablation of the docking arm"
 DESCRIPTION = """
 Contribution of each structural block to macro-F1, measured as full model −
-model without the block (positive = the block helps), for the selected random
-forest over 3 seeds × 3 folds under each split (`scripts/ablation_by_block.py`).
-Blocks: receptor-dependent columns (docking energetics, ProLIF contacts and
-contact counts; need a receptor to compute), ligand docked-pose 3D shape
-(computable from the ligand alone) and both together. Each dot is the
-seed-mean contribution; the horizontal bar is the range of the per-seed
-contributions; the grey band is ±1 SD of the full model across seeds, the
-run-to-run noise floor. This replaces the 2026-08-25 single-block ablation,
-whose earlier version reported the pre-leakage-fix Δ = +0.041.
+model without the block (positive = the block helps), for the selected learner
+under each split (`scripts/ablation_by_block.py`; the learner, seed list and
+source matrix are recorded in the run's `ablation_by_block.meta.json` and
+reported in the facts below). Blocks: receptor-dependent columns (docking
+energetics, ProLIF contacts and contact counts; need a receptor to compute),
+ligand docked-pose 3D shape (computable from the ligand alone) and both
+together.
+
+The comparison is paired: within every (split, seed, fold) all four variants
+are fitted on identical rows with an identical model seed, so each
+contribution is a difference on the same data rather than a gap between two
+independently noisy means. Each dot is the mean contribution over seeds and
+the horizontal bar is its two-sided 95% confidence interval, computed on the
+per-seed paired differences; a bar crossing the zero line is a block whose
+contribution this design cannot resolve from zero. The grey band is ±1 SD of
+the full model across seeds.
+
+Grouped folds are reshuffled per seed (`make_grouped_cv(shuffle=True)`).
+Before that, `GroupKFold` returned one fixed partition whatever seed it was
+given, so every grouped seed was the same measurement repeated and the spread
+shown here was exactly zero — a delta compared against zero has not been
+compared at all (HAL-6168). This replaces the 2026-08-25 single-block
+ablation, whose earlier version reported the pre-leakage-fix Δ = +0.041.
 """
-SOURCES = ["processed/ml_models/extras/ablation_by_block.csv"]
+SOURCES = [
+    "processed/ml_models/extras/ablation_by_block.csv",
+    "processed/ml_models/extras/ablation_by_block_summary.csv",
+    "processed/ml_models/extras/ablation_by_block.meta.json",
+]
 
 SPLITS = ["receptor_grouped", "scaffold_grouped", "stratified"]
 VARIANTS = [
@@ -35,10 +53,21 @@ VARIANTS = [
 
 def build(art: Artefacts):
     df = art.csv(SOURCES[0])
+    summary = art.csv(SOURCES[1]).set_index(["split", "variant"])
+    meta = art.json(SOURCES[2])
     nfeat = df.groupby("variant").n_features.first()
     full_n = int(nfeat["full"])
     fig, ax = plt.subplots(figsize=(6.4, 3.3))
-    facts = {}
+    facts = {
+        "learner / source matrix": (
+            f"{meta['model']} / {meta['dataset']} "
+            f"(sha256 {meta['dataset_sha256'][:12]})"
+        ),
+        "design": (
+            f"{len(meta['seeds'])} seeds x {meta['folds']}-fold CV, paired "
+            f"within (split, seed, fold); grouped folds shuffled per seed"
+        ),
+    }
     offsets = {v: o for (v, _, _), o in zip(VARIANTS, (0.22, 0.0, -0.22))}
     for yi, split in enumerate(SPLITS):
         y = len(SPLITS) - 1 - yi
@@ -55,16 +84,23 @@ def build(art: Artefacts):
             per_seed = (full - drop.reindex(full.index))
             m = float(per_seed.mean())
             yy = y + offsets[v]
-            ax.plot([per_seed.min(), per_seed.max()], [yy, yy], color=col,
-                    lw=1.2, alpha=0.55, zorder=2, solid_capstyle="round")
+            # The summary stores the delta as (without block - full); the
+            # contribution plotted here is the other sign, so the interval
+            # flips with it.
+            row = summary.loc[(split, v)]
+            lo = -float(row.delta_ci95_hi)
+            hi = -float(row.delta_ci95_lo)
+            resolved = bool(row.delta_excludes_zero)
+            ax.plot([lo, hi], [yy, yy], color=col, lw=1.2, alpha=0.55,
+                    zorder=2, solid_capstyle="round")
             ax.scatter(m, yy, s=36, color=col, edgecolor=S.SURFACE, linewidth=1.2,
                        zorder=3)
-            ax.text(max(per_seed.max(), m) + 0.0012, yy, f"{m:+.4f}", va="center",
+            ax.text(max(hi, m) + 0.0012, yy, f"{m:+.4f}", va="center",
                     fontsize=6.6, color=S.TEXT_PRIMARY, bbox=S.LABEL_BOX, zorder=5)
             facts[f"{S.SPLIT_LABEL[split]} / {lab}"] = (
-                f"{m:+.4f} (without block {drop.mean():.4f}; "
-                f"{int(nfeat[v])} features; per-seed "
-                f"{', '.join(f'{x:+.4f}' for x in per_seed.values)})"
+                f"{m:+.4f}, 95% CI [{lo:+.4f}, {hi:+.4f}] "
+                f"({'resolved from zero' if resolved else 'within noise'}; "
+                f"without block {drop.mean():.4f}; {int(nfeat[v])} features)"
             )
     ax.axvline(0, color=S.TEXT_PRIMARY, lw=0.8, zorder=1)
     ax.set_yticks(range(len(SPLITS)))
@@ -83,7 +119,7 @@ def build(art: Artefacts):
     handles.append(plt.Rectangle((0, 0), 1, 1, color=S.GREY_WASH))
     labels.append("±1 SD of full model across seeds")
     handles.append(plt.Line2D([], [], color=S.GREY, lw=1.2))
-    labels.append("range of per-seed contributions")
+    labels.append("95% CI of the paired contribution")
     ax.legend(handles, labels, ncol=2, loc="upper center",
               bbox_to_anchor=(0.45, -0.17))
     facts["columns: full / receptor-dependent / ligand 3D shape / both"] = (

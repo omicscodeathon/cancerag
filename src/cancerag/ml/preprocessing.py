@@ -344,12 +344,37 @@ def make_grouped_cv(
     group_col: str,
     n_splits: int = 5,
     seed: int = 42,
+    shuffle: bool = False,
 ) -> list[tuple[np.ndarray, np.ndarray]]:
     """Build (train_idx, test_idx) splits for K-fold by group.
 
     Used for scaffold- and receptor-grouped cross-validation. Falls back to
     fewer folds if the group count is < n_splits (rare but possible for
     receptor-grouped on small subsets).
+
+    ``shuffle`` is off by default, and that default is load-bearing in both
+    directions.
+
+    Off, this is plain ``GroupKFold``, which is deterministic: it orders groups
+    by descending size and assigns them to folds, ignoring ``seed`` entirely.
+    So a caller that loops over several seeds re-fits on *one* fixed partition.
+    Whatever spread it then measures is model-initialisation jitter on fixed
+    folds, not resampling variance, and for a deterministic learner it is
+    exactly zero. A delta judged against that spread has not been judged
+    against anything (HAL-6168).
+
+    On, the unique group labels are permuted under ``seed`` and then assigned
+    greedily to the fold holding the fewest rows so far. Each seed is a
+    genuinely different partition, no group is ever split across folds, and
+    fold sizes stay close to balanced. Deterministic given ``seed``, distinct
+    across seeds.
+
+    The default stays off because this function produces every scaffold- and
+    receptor-grouped number in the manuscript -- the model bake-off, the nested
+    parsimony sweep, SHAP attribution and the binary ERK contrast. Those were
+    verified against their artefacts in the 2026-11-23 claims audit, so
+    shuffling underneath them would silently move all of them at once. A caller
+    that wants honest fold-assignment error bars asks for them.
     """
     from sklearn.model_selection import GroupKFold
     groups = df[group_col].astype(str).values
@@ -357,6 +382,25 @@ def make_grouped_cv(
     n_splits = min(n_splits, n_groups)
     if n_splits < 2:
         return []
+
+    if shuffle:
+        # np.unique sorts, so the permutation input does not depend on row
+        # order -- the same frame in a different order yields the same folds.
+        uniq = np.unique(groups)
+        order = np.random.default_rng(seed).permutation(uniq)
+        sizes = {g: int(cnt) for g, cnt in zip(*np.unique(groups, return_counts=True))}
+        fold_rows = np.zeros(n_splits, dtype=np.int64)
+        fold_of: dict[str, int] = {}
+        for g in order:
+            k = int(np.argmin(fold_rows))
+            fold_of[g] = k
+            fold_rows[k] += sizes[g]
+        assigned = np.array([fold_of[g] for g in groups])
+        return [
+            (np.flatnonzero(assigned != k), np.flatnonzero(assigned == k))
+            for k in range(n_splits)
+        ]
+
     gkf = GroupKFold(n_splits=n_splits)
     return [
         (np.asarray(tr), np.asarray(te))
