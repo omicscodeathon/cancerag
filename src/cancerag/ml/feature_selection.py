@@ -332,7 +332,7 @@ def run_selector_ablation(
     *,
     dataset_path: Path | str = "data/processed/ml_ready_dataset.parquet",
     label_encoder_path: Path | str = "data/processed/ml_preprocessed/label_encoder.joblib",
-    output_dir: Path | str = "data/processed/ml_models/selector_ablation",
+    output_dir: Path | str = "data/processed/ml_models/selector_ablation_shuffled",
     selectors: list[str] = None,
     models: list[str] = None,
     seed: int = 42,
@@ -537,7 +537,7 @@ def flag_no_selection_collisions(abl: pd.DataFrame) -> pd.DataFrame:
 def stale_selector_ablation_artefacts(
     *,
     dataset_path: Path | str = "data/processed/ml_ready_dataset.parquet",
-    output_dir: Path | str = "data/processed/ml_models/selector_ablation",
+    output_dir: Path | str = "data/processed/ml_models/selector_ablation_shuffled",
 ) -> list[str]:
     """Names of selector-ablation artefacts older than the matrix they describe.
 
