@@ -109,7 +109,11 @@ def build(art: Artefacts):
                        edgecolor=S.SURFACE, linewidth=0.5, alpha=0.9)
         bx.scatter(row["mean"], y, s=40, marker="|", color=S.TEXT_PRIMARY,
                    linewidth=1.8, zorder=3)
-        bx.text(row.ci95_hi + 0.006, y, f"{row['mean']:.3f}", va="center",
+        # Past the rightmost mark on this row, not past the interval: a learner
+        # mean can sit outside the pooled CI (random forest's 0.459 against a
+        # pooled upper bound of 0.441) and would print under the label.
+        bx.text(max(float(row.ci95_hi), float(m.loc[s].max())) + 0.006, y,
+                f"{row['mean']:.3f}", va="center",
                 fontsize=6.6, color=S.TEXT_PRIMARY)
     bx.set_yticks(ys)
     bx.set_yticklabels([SEL_LABEL[s] for s in order])
