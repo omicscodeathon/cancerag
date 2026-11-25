@@ -310,17 +310,31 @@ def run_selector_ablation(
     selectors: list[str] = None,
     models: list[str] = None,
     seed: int = 42,
+    seeds: Sequence[int] | None = None,
+    shuffle_folds: bool = False,
     cv_n_folds: int = 3,
 ) -> pd.DataFrame:
     """Run a selector × model ablation matrix on scaffold-grouped CV.
 
     For each (selector, model) cell, fit a per-fold pipeline with that
-    selector + model on scaffold-grouped 3-fold CV at one seed and report
-    macro-F1 mean + std. Disable force_keep_prefixes for the ablation so
-    selectors compete on equal terms.
+    selector + model on scaffold-grouped CV and report macro-F1 mean + std.
+    Disable force_keep_prefixes for the ablation so selectors compete on
+    equal terms.
 
-    Output: ``selector_ablation.csv`` with columns
-    [selector, model, fold, macro_f1, n_features_selected].
+    ``seeds`` and ``shuffle_folds`` exist together, and one is useless
+    without the other. Plain ``GroupKFold`` is deterministic, so sweeping
+    seeds over unshuffled folds re-fits on a single partition and varies only
+    model initialisation: the resulting spread is not resampling variance and
+    cannot say whether one selector really beats another. Passing several
+    ``seeds`` with ``shuffle_folds=True`` reshuffles the scaffold-to-fold
+    assignment per seed, which is what makes a ranking between selectors
+    testable rather than an artefact of one split (HAL-6168).
+
+    Defaults reproduce the earlier single-seed, unshuffled behaviour.
+
+    Output: ``selector_ablation_long.csv`` with columns
+    [selector, model, seed, fold, macro_f1, n_features_selected,
+    fallback_reason].
     """
     import joblib
     from sklearn.model_selection import StratifiedKFold
@@ -337,61 +351,67 @@ def run_selector_ablation(
     X, y, sw, le, _ = get_X_y_groups(df, label_encoder=le)
     n_classes = len(le.classes_)
 
-    splits = make_grouped_cv(df, group_col="scaffold",
-                              n_splits=cv_n_folds, seed=seed)
-    if not splits:
-        splits = list(StratifiedKFold(n_splits=cv_n_folds, shuffle=True,
-                                       random_state=seed).split(X, y))
+    seed_list = list(seeds) if seeds else [seed]
+
+    def splits_for(s_: int):
+        sp = make_grouped_cv(df, group_col="scaffold", n_splits=cv_n_folds,
+                             seed=s_, shuffle=shuffle_folds)
+        if not sp:
+            sp = list(StratifiedKFold(n_splits=cv_n_folds, shuffle=True,
+                                      random_state=s_).split(X, y))
+        return sp
 
     rows: list[dict] = []
     for sname in selectors:
         SelClass = SELECTORS[sname]
         for mname in models:
             mfactory = MODEL_FACTORIES[mname]
-            for fi, (tr, te) in enumerate(splits):
-                model = mfactory(n_classes=n_classes, random_state=seed)
-                # Disable force_keep for the ablation (fair comparison)
-                selector = SelClass(force_keep_prefixes=())
-                pipe = build_full_pipeline(
-                    model, impute=True, variance_threshold=1e-4,
-                    correlation_threshold=0.97, scale=True,
-                    selector=selector,
-                )
-                cw = _combined_weight(y[tr], sw[tr])
-                last = pipe.steps[-1][0]
-                try:
-                    import warnings as _w
-                    with _w.catch_warnings():
-                        _w.simplefilter("ignore")
-                        pipe.fit(X.iloc[tr], y[tr],
-                                 **{f"{last}__sample_weight": cw})
-                    y_pred = pipe.predict(X.iloc[te])
-                    from sklearn.metrics import f1_score
-                    macro_f1 = float(f1_score(y[te], y_pred,
-                                               average="macro", zero_division=0))
-                    n_sel = len(pipe.named_steps["selector"].selected_)
-                    # A selector that fell back to keeping every column did
-                    # not measure what this row is named after. Carry the
-                    # reason into the artefact so the number can never be
-                    # quoted as that selector's.
-                    fallback = getattr(
-                        pipe.named_steps["selector"], "fallback_reason_", None)
-                except Exception as exc:
-                    logger.warning(
-                        "[%s|%s|fold=%d] failed: %s", sname, mname, fi, exc,
-                    )
-                    macro_f1, n_sel = float("nan"), 0
-                    fallback = f"{type(exc).__name__}: {exc}"
-                rows.append({
-                    "selector": sname, "model": mname, "fold": fi,
-                    "macro_f1": macro_f1, "n_features_selected": n_sel,
-                    "fallback_reason": fallback,
-                })
-                logger.info(
-                    "[%s|%s|fold=%d] macro_f1=%.3f, n_features=%d%s",
-                    sname, mname, fi, macro_f1, n_sel,
-                    f"  FALLBACK({fallback})" if fallback else "",
-                )
+            for cv_seed in seed_list:
+              for fi, (tr, te) in enumerate(splits_for(cv_seed)):
+                  model = mfactory(n_classes=n_classes, random_state=cv_seed)
+                  # Disable force_keep for the ablation (fair comparison)
+                  selector = SelClass(force_keep_prefixes=())
+                  pipe = build_full_pipeline(
+                      model, impute=True, variance_threshold=1e-4,
+                      correlation_threshold=0.97, scale=True,
+                      selector=selector,
+                  )
+                  cw = _combined_weight(y[tr], sw[tr])
+                  last = pipe.steps[-1][0]
+                  try:
+                      import warnings as _w
+                      with _w.catch_warnings():
+                          _w.simplefilter("ignore")
+                          pipe.fit(X.iloc[tr], y[tr],
+                                   **{f"{last}__sample_weight": cw})
+                      y_pred = pipe.predict(X.iloc[te])
+                      from sklearn.metrics import f1_score
+                      macro_f1 = float(f1_score(y[te], y_pred,
+                                                 average="macro", zero_division=0))
+                      n_sel = len(pipe.named_steps["selector"].selected_)
+                      # A selector that fell back to keeping every column did
+                      # not measure what this row is named after. Carry the
+                      # reason into the artefact so the number can never be
+                      # quoted as that selector's.
+                      fallback = getattr(
+                          pipe.named_steps["selector"], "fallback_reason_", None)
+                  except Exception as exc:
+                      logger.warning(
+                          "[%s|%s|fold=%d] failed: %s", sname, mname, fi, exc,
+                      )
+                      macro_f1, n_sel = float("nan"), 0
+                      fallback = f"{type(exc).__name__}: {exc}"
+                  rows.append({
+                      "selector": sname, "model": mname, "seed": cv_seed,
+                      "fold": fi,
+                      "macro_f1": macro_f1, "n_features_selected": n_sel,
+                      "fallback_reason": fallback,
+                  })
+                  logger.info(
+                      "[%s|%s|seed=%d|fold=%d] macro_f1=%.3f, n_features=%d%s",
+                      sname, mname, cv_seed, fi, macro_f1, n_sel,
+                      f"  FALLBACK({fallback})" if fallback else "",
+                  )
     abl = pd.DataFrame(rows)
     abl.to_csv(output_dir / "selector_ablation_long.csv", index=False)
 
@@ -414,7 +434,16 @@ def run_selector_ablation(
           .groupby(["selector", "model"]).size().rename("n_not_fallback"))
     summary = summary.merge(ok, on=["selector", "model"], how="left")
     summary["n_not_fallback"] = summary["n_not_fallback"].fillna(0).astype(int)
+    summary["n_seeds"] = len(seed_list)
+    summary["shuffle_folds"] = bool(shuffle_folds)
     summary.to_csv(output_dir / "selector_ablation_summary.csv", index=False)
+
+    # One complete CV estimate per (selector, model, seed). The folds inside a
+    # seed are not independent, so this -- not the fold list -- is the unit a
+    # ranking between selectors should be tested on.
+    per_seed = (abl.groupby(["selector", "model", "seed"], as_index=False)
+                   .macro_f1.mean())
+    per_seed.to_csv(output_dir / "selector_ablation_seeds.csv", index=False)
     pivot = summary.pivot(index="selector", columns="model", values="mean")
     pivot.to_csv(output_dir / "selector_ablation_matrix.csv")
     logger.info("Selector × model matrix:\n%s", pivot.to_string())

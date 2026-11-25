@@ -45,6 +45,17 @@ def main(argv: list[str] | None = None) -> int:
                    choices=sorted(SELECTORS))
     p.add_argument("--models", nargs="+", default=DEFAULT_MODELS)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument(
+        "--seeds", type=int, nargs="+", default=None,
+        help="Sweep these CV seeds instead of the single --seed. Only "
+             "meaningful together with --shuffle-folds: GroupKFold is "
+             "deterministic, so seeds over unshuffled folds re-fit one "
+             "partition and vary model initialisation alone.")
+    p.add_argument(
+        "--shuffle-folds", action="store_true",
+        help="Reshuffle the scaffold-to-fold assignment per seed, so a "
+             "ranking between selectors can be tested against fold "
+             "variance rather than asserted from one split.")
     p.add_argument("--cv-folds", type=int, default=3)
     p.add_argument("--check-only", action="store_true",
                    help="Report whether the artefacts predate the dataset and "
@@ -78,6 +89,8 @@ def main(argv: list[str] | None = None) -> int:
         selectors=list(args.selectors),
         models=list(args.models),
         seed=args.seed,
+        seeds=args.seeds,
+        shuffle_folds=args.shuffle_folds,
         cv_n_folds=args.cv_folds,
     )
     n_failed = int(abl["macro_f1"].isna().sum())
@@ -92,6 +105,14 @@ def main(argv: list[str] | None = None) -> int:
                       r.selector, r.model, r.fold, r.selector,
                       r.fallback_reason)
 
+    if args.seeds and len(args.seeds) > 1:
+        per_seed = (abl.groupby(["selector", "seed"], as_index=False)
+                       .macro_f1.mean())
+        print(f"\n=== per-selector mean macro-F1 over {len(args.seeds)} seeds "
+              f"(SD across seeds; folds reshuffled per seed) ===")
+        agg = per_seed.groupby("selector")["macro_f1"].agg(["mean", "std"])
+        for name, row in agg.sort_values("mean", ascending=False).iterrows():
+            print(f"  {name:<14} {row['mean']:.4f} +/- {row['std']:.4f}")
     print("\n=== per-selector mean macro-F1 (across learners and folds) ===")
     per_sel = abl.groupby("selector")["macro_f1"].agg(["mean", "std"])
     for name, row in per_sel.sort_values("mean", ascending=False).iterrows():
