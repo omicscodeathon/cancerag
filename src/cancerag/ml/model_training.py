@@ -42,7 +42,7 @@ import logging
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Sequence
 
 import joblib
 import numpy as np
@@ -52,8 +52,8 @@ from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
-    accuracy_score, balanced_accuracy_score, brier_score_loss,
-    classification_report, confusion_matrix, f1_score,
+    accuracy_score, brier_score_loss,
+    classification_report,
 )
 from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
@@ -63,11 +63,10 @@ from sklearn.utils.class_weight import compute_sample_weight
 from cancerag.features.molecular_descriptors import morgan_dataframe
 from cancerag.ml.feature_selection import BorutaSelector
 from cancerag.ml.model_evaluation import (
-    bootstrap_ci, per_receptor_metrics, report_metrics,
+    per_receptor_metrics, report_metrics,
 )
 from cancerag.ml.preprocessing import (
-    build_full_pipeline, get_X_y_groups, identify_columns,
-    make_grouped_cv,
+    build_full_pipeline, get_X_y_groups, make_grouped_cv,
 )
 
 logger = logging.getLogger(__name__)
@@ -120,9 +119,14 @@ def make_catboost(*, n_classes: int, random_state: int = 42, **kwargs):
 
 
 def make_elastic_lr(*, n_classes: int, random_state: int = 42, **kwargs):
+    # `multi_class` was deprecated in scikit-learn 1.5 and REMOVED in 1.7, so
+    # passing it raises TypeError on the version this project already pins
+    # (`scikit-learn>=1.7.2`). It is simply dropped rather than replaced:
+    # multinomial is what LogisticRegression now does for a multiclass target
+    # on any solver but liblinear, which is exactly what was being asked for.
     params = dict(
         penalty="elasticnet", solver="saga", l1_ratio=0.5, C=0.5,
-        max_iter=2000, multi_class="multinomial",
+        max_iter=2000,
         n_jobs=4, random_state=random_state, class_weight="balanced",
     )
     params.update(kwargs)
@@ -417,11 +421,13 @@ def run_model_training(
         )
     else:
         logger.info("feature selection OFF (variance + correlation filters still apply)")
-    output_dir = Path(output_dir); output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "figures").mkdir(exist_ok=True)
     df = pd.read_parquet(dataset_path)
     le = joblib.load(Path(preprocessed_dir) / "label_encoder.joblib")
-    n_classes = len(le.classes_); label_classes = list(le.classes_)
+    n_classes = len(le.classes_)
+    label_classes = list(le.classes_)
     X, y, sw, le, cols = get_X_y_groups(df, label_encoder=le)
     logger.info(
         "Train-eligible: %d rows × %d cols | classes=%s",
@@ -749,7 +755,8 @@ def select_final_model(nested_cv_results: pd.DataFrame) -> dict:
 
 
 def write_selection_decision(decision: dict, path: Path | str) -> Path:
-    path = Path(path); path.parent.mkdir(parents=True, exist_ok=True)
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(_json.dumps(decision, indent=2, sort_keys=True))
     return path
 

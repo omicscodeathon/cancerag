@@ -1,4 +1,4 @@
-"""Block-wise structural ablation, against the noise floor that judges it."""
+"""Block-wise structural ablation, with the interval that judges each block."""
 
 from __future__ import annotations
 
@@ -11,21 +11,36 @@ from . import _style as S
 from ._data import Artefacts
 
 NAME = "fig08_ablation"
-TITLE = "Removing the structural arm costs nothing"
+TITLE = "The structural arm earns 0.02, and only on unseen chemistry"
 DESCRIPTION = """
 Does receptor-derived structure earn its place? (a) Contribution of each
 structural block to four-class macro-F1, measured as full model − model
-without the block (positive = the block helps), for the selected learner over
-3 seeds × 3 folds under each split (`scripts/ablation_by_block.py`). Blocks:
-receptor-dependent columns (docking energetics, ProLIF contacts and contact
-counts; need a receptor to compute), ligand docked-pose 3D shape (computable
-from the ligand alone) and both together. The grey band is the fold-to-fold
-spread of the same learner under the same split in the independent bake-off
-(`cv_results_summary.csv`, 25 fits), the noise any contribution has to clear;
-every contribution sits inside it. The coloured bar is the range across the
-three ablation seeds, which is zero on both grouped splits because
-``GroupKFold`` accepts no shuffle — seeds change the model, not the folds, and
-on these data they change nothing. (b) The same question on the well-posed
+without the block (positive = the block helps), for the selected learner under
+each split (`scripts/ablation_by_block.py`; the learner, seed list and source
+matrix are recorded in the run's `ablation_by_block.meta.json` and reported in
+the facts below). Blocks: receptor-dependent columns (docking energetics,
+ProLIF contacts and contact counts; need a receptor to compute), ligand
+docked-pose 3D shape (computable from the ligand alone) and both together.
+
+The comparison is paired: within every (split, seed, fold) all four variants
+are fitted on identical rows with an identical model seed, so each
+contribution is a difference on the same data rather than a gap between two
+independently noisy means. The coloured bar is its two-sided 95% confidence
+interval over seeds; a bar crossing the zero line is a block this design
+cannot resolve from zero. Grouped folds are reshuffled per seed
+(`make_grouped_cv(shuffle=True)`); before that, `GroupKFold` returned one
+fixed partition whatever seed it was given, every grouped seed was the same
+measurement repeated, and the spread was exactly zero — a delta compared
+against zero has not been compared at all (HAL-6168).
+
+The independent bake-off's fold-to-fold spread for the same learner and split
+(`cv_results_summary.csv`, 25 fits; 0.056, 0.112 and 0.054 for the stratified,
+scaffold- and receptor-grouped splits) is reported in the facts rather than
+drawn. It is the scatter of an absolute score, not of a paired difference, so
+a contribution can lie well inside it and still be resolved from zero — as the
+scaffold-grouped receptor-dependent block is — and at its width every interval
+here would collapse onto the zero line. (b) The same question on the
+well-posed
 binary contrast (G protein vs β-arrestin, n = 316), where four feature views
 are scored under each split. Dropping every structural column raises
 receptor-held-out macro-F1 rather than lowering it, and dropping the 243
@@ -33,11 +48,15 @@ receptor-qualified contact columns together with the two fingerprint status
 flags — 245 columns — changes nothing at all: that view is identical to the
 full matrix to sixteen decimal places under every split.
 """
+# Indexed positionally by both panels, so entries are appended, never inserted.
+ABLATION, BAKEOFF, BINARY, DECISION, PAIRED, META = range(6)
 SOURCES = [
     "processed/ml_models/extras/ablation_by_block.csv",
     "processed/ml_models/cv_results_summary.csv",
     "processed/ml_models/binary_erk_splits.json",
     "processed/ml_models/selection_decision.json",
+    "processed/ml_models/extras/ablation_by_block_summary.csv",
+    "processed/ml_models/extras/ablation_by_block.meta.json",
 ]
 
 SPLITS = ["receptor_grouped", "scaffold_grouped", "stratified"]
@@ -62,48 +81,64 @@ BIN_SPLITS = ["stratified", "scaffold_grouped", "receptor_grouped"]
 
 
 def _panel_a(ax, art, facts):
-    df = art.csv(SOURCES[0])
-    summary = art.csv(SOURCES[1]).set_index(["model", "split"])
+    df = art.csv(SOURCES[ABLATION])
+    bakeoff = art.csv(SOURCES[BAKEOFF]).set_index(["model", "split"])
+    # The paired intervals, from the run that produced the deltas. `summary`
+    # stores each delta as (without block − full); the contribution plotted
+    # here is the other sign, so its interval flips with it.
+    paired = art.csv(SOURCES[PAIRED]).set_index(["split", "variant"])
+    meta = art.json(SOURCES[META])
     winner = art.selected_model
     nfeat = df.groupby("variant").n_features.first()
     full_n = int(nfeat["full"])
     offsets = {v: o for (v, _, _), o in zip(VARIANTS, (0.24, 0.0, -0.24))}
 
+    bounds = [abs(float(b)) for sp in SPLITS for v, _, _ in VARIANTS
+              for b in (paired.loc[(sp, v), "delta_ci95_lo"],
+                        paired.loc[(sp, v), "delta_ci95_hi"])]
+    # The scale follows the intervals, and only the intervals. The bake-off's
+    # fold-to-fold SD is about five times the widest of them, so drawing it as
+    # a band would set a scale on which every interval collapses onto the zero
+    # line — which is how a delta came to be reported against no comparison at
+    # all. It stays in the caption and the facts, where it can be read.
+    lim = max(bounds) * 1.5
+
     for yi, split in enumerate(SPLITS):
         y = len(SPLITS) - 1 - yi
         d = df[df.split == split]
         full = d[d.variant == "full"].set_index("seed").macro_f1
-        band = float(summary.loc[(winner, BAKEOFF_SPLIT[split]), "macro_f1_std"])
-        ax.add_patch(plt.Rectangle((-band, y - 0.42), 2 * band, 0.84,
-                                   color=S.GREY_WASH, zorder=0, linewidth=0))
+        band = float(bakeoff.loc[(winner, BAKEOFF_SPLIT[split]), "macro_f1_std"])
         facts[f"{S.SPLIT_LABEL[split]} full model"] = (
-            f"{full.mean():.4f} (ablation, 3 seeds × 3 folds); "
-            f"fold-to-fold SD {band:.4f} ({winner}, bake-off, 25 fits)"
+            f"{full.mean():.4f} ± {full.std(ddof=1):.4f} (ablation, "
+            f"{len(meta['seeds'])} seeds × {meta['folds']} folds); fold-to-fold "
+            f"SD {band:.4f} ({winner}, bake-off, 25 fits)"
         )
         for v, lab, col in VARIANTS:
             drop = d[d.variant == v].set_index("seed").macro_f1
             per_seed = full - drop.reindex(full.index)
             m = float(per_seed.mean())
+            row = paired.loc[(split, v)]
+            lo, hi = -float(row.delta_ci95_hi), -float(row.delta_ci95_lo)
+            resolved = bool(row.delta_excludes_zero)
             yy = y + offsets[v]
-            ax.plot([per_seed.min(), per_seed.max()], [yy, yy], color=col,
-                    lw=1.4, alpha=0.55, zorder=2, solid_capstyle="round")
+            ax.plot([lo, hi], [yy, yy], color=col, lw=1.4, alpha=0.55,
+                    zorder=2, solid_capstyle="round")
             ha, dx = ("left", 0.0022) if m >= 0 else ("right", -0.0022)
-            edge = per_seed.max() if m >= 0 else per_seed.min()
             ax.scatter(m, yy, s=34, color=col, edgecolor=S.SURFACE, linewidth=1.1,
                        zorder=3)
-            ax.text(edge + dx, yy, f"{m:+.4f}", va="center", ha=ha, fontsize=6.4,
-                    color=S.TEXT_PRIMARY, bbox=S.LABEL_BOX, zorder=5)
+            ax.text((hi if m >= 0 else lo) + dx, yy, f"{m:+.4f}", va="center",
+                    ha=ha, fontsize=6.4, color=S.TEXT_PRIMARY, bbox=S.LABEL_BOX,
+                    zorder=5)
             facts[f"{S.SPLIT_LABEL[split]} / {lab}"] = (
-                f"{m:+.4f} (without block {drop.mean():.4f}; "
-                f"{int(nfeat[v])} features; per-seed "
-                f"{', '.join(f'{x:+.4f}' for x in per_seed.values)})"
+                f"{m:+.4f}, 95% CI [{lo:+.4f}, {hi:+.4f}] "
+                f"({'resolved from zero' if resolved else 'within noise'}; "
+                f"without block {drop.mean():.4f}; {int(nfeat[v])} features)"
             )
     ax.axvline(0, color=S.TEXT_PRIMARY, lw=0.8, zorder=1)
     ax.set_yticks(range(len(SPLITS)))
     ax.set_yticklabels(["Stratified\n(optimistic)", "Scaffold-grouped\n(unseen chemistry)",
                         "Receptor-grouped\n(unseen receptor)"])
     ax.tick_params(axis="y", length=0)
-    lim = 0.125
     ax.set_xlim(-lim, lim)
     ax.set_ylim(-0.6, len(SPLITS) - 0.4)
     ax.set_xlabel("Contribution to four-class macro-F1\n"
@@ -112,10 +147,15 @@ def _panel_a(ax, art, facts):
     handles = [plt.Line2D([], [], color=c, marker="o", ls="none", ms=5.5,
                           markeredgecolor=S.SURFACE) for _, _, c in VARIANTS]
     labels = [f"{lab} ({full_n - int(nfeat[v])} cols)" for v, lab, _ in VARIANTS]
-    handles.append(plt.Rectangle((0, 0), 1, 1, color=S.GREY_WASH))
-    labels.append("±1 SD fold-to-fold (bake-off)")
+    handles.append(plt.Line2D([], [], color=S.GREY, lw=1.4))
+    labels.append("95% CI of the paired contribution")
     ax.legend(handles, labels, ncol=2, loc="upper center", bbox_to_anchor=(0.46, -0.30),
               columnspacing=1.0)
+    facts["design"] = (
+        f"{len(meta['seeds'])} seeds × {meta['folds']}-fold CV on "
+        f"{meta['dataset']} (sha256 {meta['dataset_sha256'][:12]}), paired "
+        f"within (split, seed, fold); grouped folds reshuffled per seed"
+    )
     facts["columns: full / receptor-dependent / ligand 3D shape / both"] = (
         f"{full_n} / {full_n - int(nfeat['drop_receptor_dependent'])} / "
         f"{full_n - int(nfeat['drop_ligand_3d_shape'])} / "
@@ -125,7 +165,7 @@ def _panel_a(ax, art, facts):
 
 
 def _panel_b(ax, art, facts):
-    b = json.loads(art.path(SOURCES[2]).read_text())["binary"]
+    b = json.loads(art.path(SOURCES[BINARY]).read_text())["binary"]
     rows = {(r["view"], r["regime"]): r for r in b["rows"]}
     floor = float(b["floor"])
     xs = range(len(BIN_SPLITS))
@@ -187,8 +227,9 @@ def build(art: Artefacts):
     S.panel_label(ax1, "a", x=-0.30)
     S.panel_label(ax2, "b", x=-0.14)
     fig.text(0.013, -0.255,
-             "Seed-to-seed spread is zero on both grouped splits by construction: "
-             "GroupKFold accepts no shuffle, so every seed sees the same folds.",
+             "Grouped folds are reshuffled per seed, so the interval in (a) is "
+             "resampling variance; before HAL-6168 GroupKFold returned one fixed "
+             "partition and that spread was zero by construction.",
              fontsize=5.9, color=S.TEXT_MUTED, ha="left", va="top")
     return fig, facts
 

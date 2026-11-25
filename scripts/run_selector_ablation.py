@@ -7,14 +7,25 @@ hand. That is how they came to be dated 2026-05-03 — produced before the
 per-receptor QC-leakage fix and never refreshed with everything else
 (HAL-3613). This script is that caller.
 
-It runs every (selector, learner) cell on scaffold-grouped CV at the module's
-defaults and overwrites the three artefacts in place, so re-running it is the
-documented way to keep them in step with `ml_ready_dataset.parquet`.
+It runs every (selector, learner) cell on scaffold-grouped CV and overwrites
+the artefacts in place, so re-running it is the documented way to keep them in
+step with `ml_ready_dataset.parquet`.
+
+By default it sweeps five CV seeds with the scaffold-to-fold assignment
+reshuffled per seed. The single-seed default it used to carry could not support
+the ranking it was cited for: `GroupKFold` accepts no `shuffle` and no
+`random_state`, so the spread it reported was fold-to-fold inside one fixed
+partition, and a seed sweep over it re-fitted the same split (HAL-6168). Pass
+`--no-shuffle-folds --seeds 42` to reproduce that older artefact deliberately.
+
+The ranking itself is computed by `scripts/selector_ranking_stats.py`, which
+reads this script's `selector_ablation_seeds.csv`.
 
 Run:
     PYTHONPATH=src python scripts/run_selector_ablation.py
 
-Takes roughly 15 minutes on a laptop; Boruta and RFECV dominate the cost.
+Roughly 45 minutes on four cores at the default five seeds; Boruta and RFECV
+dominate the cost.
 """
 from __future__ import annotations
 
@@ -31,8 +42,12 @@ from cancerag.ml.feature_selection import (
 )
 
 DEFAULT_DATASET = "data/processed/ml_ready_dataset.parquet"
-DEFAULT_OUTPUT = "data/processed/ml_models/selector_ablation"
+DEFAULT_OUTPUT = "data/processed/ml_models/selector_ablation_shuffled"
 DEFAULT_MODELS = ["xgboost", "lightgbm", "elastic_lr", "random_forest"]
+# One seed cannot carry a ranking, so the default is a sweep. These are the
+# same seeds the block ablation's first five use, so the two ablations'
+# spreads are comparable.
+DEFAULT_SEEDS = [42, 7, 13, 101, 2029]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -45,6 +60,17 @@ def main(argv: list[str] | None = None) -> int:
                    choices=sorted(SELECTORS))
     p.add_argument("--models", nargs="+", default=DEFAULT_MODELS)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument(
+        "--seeds", type=int, nargs="+", default=list(DEFAULT_SEEDS),
+        help="CV seeds to sweep (default: %(default)s). Only meaningful "
+             "together with --shuffle-folds: GroupKFold is deterministic, so "
+             "seeds over unshuffled folds re-fit one partition and vary model "
+             "initialisation alone.")
+    p.add_argument(
+        "--shuffle-folds", action=argparse.BooleanOptionalAction, default=True,
+        help="Reshuffle the scaffold-to-fold assignment per seed, so a "
+             "ranking between selectors can be tested against fold variance "
+             "rather than asserted from one split (default: on).")
     p.add_argument("--cv-folds", type=int, default=3)
     p.add_argument("--check-only", action="store_true",
                    help="Report whether the artefacts predate the dataset and "
@@ -70,6 +96,20 @@ def main(argv: list[str] | None = None) -> int:
         log.info("selector-ablation artefacts are newer than %s", args.dataset)
         return 0
 
+    if len(args.seeds) > 1 and not args.shuffle_folds:
+        # This is the defect, not a configuration. Several seeds over
+        # unshuffled grouped folds produce one partition fitted N times: the
+        # spread across them is model-initialisation jitter, which is zero for
+        # a deterministic learner, and a delta compared against zero has not
+        # been compared.
+        log.error(
+            "%d seeds with --no-shuffle-folds: GroupKFold returns the same "
+            "partition for every seed, so this measures one split %d times. "
+            "Either drop --no-shuffle-folds or pass a single --seeds value.",
+            len(args.seeds), len(args.seeds),
+        )
+        return 2
+
     t0 = time.time()
     abl = run_selector_ablation(
         dataset_path=args.dataset,
@@ -78,12 +118,32 @@ def main(argv: list[str] | None = None) -> int:
         selectors=list(args.selectors),
         models=list(args.models),
         seed=args.seed,
+        seeds=args.seeds,
+        shuffle_folds=args.shuffle_folds,
         cv_n_folds=args.cv_folds,
     )
     n_failed = int(abl["macro_f1"].isna().sum())
-    log.info("finished %d cells (%d failed) in %.1f min",
-             len(abl), n_failed, (time.time() - t0) / 60)
+    n_fallback = int(abl["fallback_reason"].notna().sum())
+    n_collide = int(abl["collides_with"].astype(bool).sum())
+    log.info("finished %d cells (%d failed, %d fell back, %d identical to "
+             "another selector) in %.1f min",
+             len(abl), n_failed, n_fallback, n_collide, (time.time() - t0) / 60)
+    if n_fallback:
+        # A fallback cell scores fine and is filed under the selector's name
+        # while measuring something else, so it must not pass quietly.
+        for _, r in abl[abl["fallback_reason"].notna()].iterrows():
+            log.error("[%s|%s|fold=%s] NOT a %s measurement: %s",
+                      r.selector, r.model, r.fold, r.selector,
+                      r.fallback_reason)
 
+    if len(args.seeds) > 1:
+        per_seed = (abl.groupby(["selector", "seed"], as_index=False)
+                       .macro_f1.mean())
+        print(f"\n=== per-selector mean macro-F1 over {len(args.seeds)} seeds "
+              f"(SD across seeds; folds reshuffled per seed) ===")
+        agg = per_seed.groupby("selector")["macro_f1"].agg(["mean", "std"])
+        for name, row in agg.sort_values("mean", ascending=False).iterrows():
+            print(f"  {name:<14} {row['mean']:.4f} +/- {row['std']:.4f}")
     print("\n=== per-selector mean macro-F1 (across learners and folds) ===")
     per_sel = abl.groupby("selector")["macro_f1"].agg(["mean", "std"])
     for name, row in per_sel.sort_values("mean", ascending=False).iterrows():
@@ -93,7 +153,16 @@ def main(argv: list[str] | None = None) -> int:
     for name, row in per_model.sort_values("mean", ascending=False).iterrows():
         print(f"  {name:<14} {row['mean']:.4f} +/- {row['std']:.4f}")
     print(f"\nArtefacts written to {Path(args.output_dir).resolve()}")
-    return 1 if n_failed else 0
+    if len(args.seeds) > 1:
+        print("Next: PYTHONPATH=src python scripts/selector_ranking_stats.py "
+              f"--seeds-csv {args.output_dir}/selector_ablation_seeds.csv "
+              f"--long-csv {args.output_dir}/selector_ablation_long.csv "
+              f"--output-dir {args.output_dir}")
+    # A collision means two selectors produced the same fit, so at least one
+    # of the two rows is not a measurement of the selector it is filed under.
+    # It is reported by the artefact itself, with no selector having to notice
+    # its own failure.
+    return 1 if (n_failed or n_fallback or n_collide) else 0
 
 
 if __name__ == "__main__":
