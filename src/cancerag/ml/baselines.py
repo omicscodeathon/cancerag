@@ -167,7 +167,7 @@ def run_chemberta_baseline(
             for fi, (tr, te) in enumerate(splits):
                 cw = compute_sample_weight("balanced", y[tr]) * sw[tr]
                 clf = LogisticRegression(
-                    multi_class="multinomial", max_iter=2000,
+                    max_iter=2000,
                     C=1.0, class_weight="balanced",
                     n_jobs=4, random_state=seed,
                 )
@@ -208,7 +208,7 @@ def run_chemberta_baseline(
         ho_y = le.transform(ho["bias_category"].astype(str).values)
         cw_all = compute_sample_weight("balanced", y) * sw
         clf = LogisticRegression(
-            multi_class="multinomial", max_iter=2000, C=1.0,
+            max_iter=2000, C=1.0,
             class_weight="balanced", n_jobs=4, random_state=42,
         )
         clf.fit(X_emb, y, sample_weight=cw_all)

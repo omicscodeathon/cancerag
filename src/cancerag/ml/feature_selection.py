@@ -162,18 +162,30 @@ class L1LogRegSelector(BaseEstimator, TransformerMixin):
             raise TypeError("L1LogRegSelector requires a DataFrame")
         self.feature_names_ = list(X.columns)
         from sklearn.linear_model import LogisticRegression
+        # Constructed outside the try: a bad keyword is a fault in this repo,
+        # not a property of the fold. `multi_class="multinomial"` was removed
+        # in scikit-learn 1.7 and used to be raised and absorbed here, so
+        # every `l1_logreg` cell kept all columns and the ablation filed a
+        # no-selection score under L1's name (measured 2026-11-25: L1 and
+        # RFECV returned byte-identical macro-F1 on the same fold).
+        # Multinomial is now the default for multiclass on `saga`.
+        lr = LogisticRegression(
+            penalty="l1", solver="saga",
+            C=self.C, max_iter=self.max_iter, n_jobs=-1,
+            random_state=self.random_state, class_weight="balanced",
+        )
+        self.fallback_reason_ = None
         try:
-            lr = LogisticRegression(
-                penalty="l1", solver="saga", multi_class="multinomial",
-                C=self.C, max_iter=self.max_iter, n_jobs=-1,
-                random_state=self.random_state, class_weight="balanced",
-            )
             lr.fit(X.values, np.asarray(y))
             mask = np.any(np.abs(lr.coef_) > 1e-8, axis=0)
             selected = [c for c, m in zip(self.feature_names_, mask) if m]
+        except TypeError:
+            raise
         except Exception as exc:
+            self.fallback_reason_ = f"{type(exc).__name__}: {exc}"
             logger.warning(
-                "L1LogRegSelector failed (%s); keeping all features", exc,
+                "L1LogRegSelector failed (%s); falling back to no-selection. "
+                "This cell is NOT an L1 measurement.", exc,
             )
             selected = list(self.feature_names_)
         forced = [
@@ -215,20 +227,26 @@ class RFECVSelector(BaseEstimator, TransformerMixin):
             raise TypeError("RFECVSelector requires a DataFrame")
         self.feature_names_ = list(X.columns)
         from sklearn.feature_selection import RFECV
+        # Constructed outside the try, for the reason given in L1LogRegSelector.
+        base = RandomForestClassifier(
+            n_estimators=self.n_estimators, n_jobs=-1,
+            class_weight="balanced", random_state=self.random_state,
+        )
+        rfe = RFECV(
+            estimator=base, step=self.step, cv=self.cv,
+            scoring="f1_macro", n_jobs=-1, min_features_to_select=10,
+        )
+        self.fallback_reason_ = None
         try:
-            base = RandomForestClassifier(
-                n_estimators=self.n_estimators, n_jobs=-1,
-                class_weight="balanced", random_state=self.random_state,
-            )
-            rfe = RFECV(
-                estimator=base, step=self.step, cv=self.cv,
-                scoring="f1_macro", n_jobs=-1, min_features_to_select=10,
-            )
             rfe.fit(X.values, np.asarray(y))
             selected = [c for c, m in zip(self.feature_names_, rfe.support_) if m]
+        except TypeError:
+            raise
         except Exception as exc:
+            self.fallback_reason_ = f"{type(exc).__name__}: {exc}"
             logger.warning(
-                "RFECVSelector failed (%s); keeping all features", exc,
+                "RFECVSelector failed (%s); falling back to no-selection. "
+                "This cell is NOT an RFECV measurement.", exc,
             )
             selected = list(self.feature_names_)
         forced = [
@@ -266,6 +284,7 @@ class MISelector(BaseEstimator, TransformerMixin):
             raise TypeError("MISelector requires a DataFrame")
         self.feature_names_ = list(X.columns)
         from sklearn.feature_selection import mutual_info_classif
+        self.fallback_reason_ = None
         try:
             mi = mutual_info_classif(
                 X.values, np.asarray(y), random_state=self.random_state,
@@ -274,8 +293,15 @@ class MISelector(BaseEstimator, TransformerMixin):
             k = min(self.k, len(self.feature_names_))
             keep_idx = set(order[:k].tolist())
             selected = [c for i, c in enumerate(self.feature_names_) if i in keep_idx]
+        except TypeError:
+            # A signature fault, not a fold property; see L1LogRegSelector.
+            raise
         except Exception as exc:
-            logger.warning("MISelector failed (%s); keeping all features", exc)
+            self.fallback_reason_ = f"{type(exc).__name__}: {exc}"
+            logger.warning(
+                "MISelector failed (%s); falling back to no-selection. This "
+                "cell is NOT a mutual-information measurement.", exc,
+            )
             selected = list(self.feature_names_)
         forced = [
             f for f in self.feature_names_
@@ -412,8 +438,19 @@ def run_selector_ablation(
                       sname, mname, cv_seed, fi, macro_f1, n_sel,
                       f"  FALLBACK({fallback})" if fallback else "",
                   )
-    abl = pd.DataFrame(rows)
+    abl = flag_no_selection_collisions(pd.DataFrame(rows))
     abl.to_csv(output_dir / "selector_ablation_long.csv", index=False)
+
+    collisions = abl[abl["collides_with"].astype(bool)]
+    if len(collisions):
+        logger.error(
+            "%d of %d fits are identical to another selector's fit on the same "
+            "(model, seed, fold). Two selectors cannot be told apart here, and "
+            "the usual cause is both falling back to no selection:\n%s",
+            len(collisions), len(abl),
+            collisions[["selector", "model", "seed", "fold", "macro_f1",
+                        "n_features_selected", "collides_with"]].to_string(index=False),
+        )
 
     n_fallback = int(abl["fallback_reason"].notna().sum())
     if n_fallback:
@@ -434,6 +471,10 @@ def run_selector_ablation(
           .groupby(["selector", "model"]).size().rename("n_not_fallback"))
     summary = summary.merge(ok, on=["selector", "model"], how="left")
     summary["n_not_fallback"] = summary["n_not_fallback"].fillna(0).astype(int)
+    n_coll = (abl[abl["collides_with"].astype(bool)]
+              .groupby(["selector", "model"]).size().rename("n_collisions"))
+    summary = summary.merge(n_coll, on=["selector", "model"], how="left")
+    summary["n_collisions"] = summary["n_collisions"].fillna(0).astype(int)
     summary["n_seeds"] = len(seed_list)
     summary["shuffle_folds"] = bool(shuffle_folds)
     summary.to_csv(output_dir / "selector_ablation_summary.csv", index=False)
@@ -454,7 +495,43 @@ SELECTOR_ABLATION_ARTEFACTS: tuple[str, ...] = (
     "selector_ablation_long.csv",
     "selector_ablation_matrix.csv",
     "selector_ablation_summary.csv",
+    "selector_ablation_seeds.csv",
 )
+
+
+def flag_no_selection_collisions(abl: pd.DataFrame) -> pd.DataFrame:
+    """Mark fits where two different selectors returned the identical result.
+
+    A selector that falls back keeps every column it was handed, so two
+    fallen-back selectors fit the same model on the same rows with the same
+    features and score the same to the last digit. That collision is
+    detectable from the artefact alone, without any selector reporting its own
+    failure -- which is exactly the case this exists for. On 2026-11-25 only
+    `BorutaSelector` set ``fallback_reason_``; L1 and RFECV each absorbed their
+    failure silently and the run's own fallback count read zero, while
+    ``l1_logreg`` and ``rfecv`` carried byte-identical macro-F1 (0.4306958549)
+    on fold 2 of every learner.
+
+    Adds a ``collides_with`` column naming the other selectors that produced an
+    identical ``(macro_f1, n_features_selected)`` for the same
+    ``(model, seed, fold)``, empty where there is no collision. Two selectors
+    that genuinely agree on a subset collide too, and that is reported rather
+    than excused: the ablation cannot tell them apart either.
+    """
+    abl = abl.copy()
+    keys = [c for c in ("model", "seed", "fold") if c in abl.columns]
+    collides: dict[int, str] = {}
+    for _, g in abl.groupby(keys, dropna=False):
+        scored = g[g.macro_f1.notna()]
+        for _, pair in scored.groupby(["macro_f1", "n_features_selected"]):
+            if pair.selector.nunique() < 2:
+                continue
+            for idx, row in pair.iterrows():
+                others = sorted(set(pair.selector) - {row.selector})
+                collides[idx] = ", ".join(others)
+    abl["collides_with"] = pd.Series(collides, dtype="object").reindex(abl.index)
+    abl["collides_with"] = abl["collides_with"].fillna("")
+    return abl
 
 
 def stale_selector_ablation_artefacts(
