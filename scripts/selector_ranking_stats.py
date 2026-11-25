@@ -57,6 +57,12 @@ def ranking(per_seed: pd.DataFrame) -> pd.DataFrame:
     return out.reset_index(drop=True)
 
 
+CONTRAST_COLUMNS = [
+    "scope", "selector_a", "selector_b", "n_seeds", "delta", "delta_sd",
+    "delta_ci95_lo", "delta_ci95_hi", "delta_excludes_zero",
+]
+
+
 def contrasts(per_seed: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for scope, g in per_seed.groupby("scope"):
@@ -73,7 +79,9 @@ def contrasts(per_seed: pd.DataFrame) -> pd.DataFrame:
                 # design cannot order, however far apart the two means look.
                 "delta_excludes_zero": bool(lo > 0 or hi < 0) if len(d) > 1 else False,
             })
-    return pd.DataFrame(rows)
+    # Columns are declared, not inferred: a single selector yields no ordered
+    # pairs, and a frame with no columns breaks every downstream `.scope`.
+    return pd.DataFrame(rows, columns=CONTRAST_COLUMNS)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -106,7 +114,10 @@ def main(argv: list[str] | None = None) -> int:
                   "refusing to rank.", file=sys.stderr)
             return 1
         if "collides_with" in long.columns:
-            coll = long[long.collides_with.fillna("").astype(bool)]
+            # An all-empty column round-trips through CSV as float64 NaN, so
+            # neither fillna("") nor astype(bool) is safe on it.
+            col = long["collides_with"]
+            coll = long[col.notna() & col.astype(str).str.strip().ne("")]
             if len(coll):
                 print(f"[error] {len(coll)} of {len(long)} fits are identical "
                       f"to another selector's fit on the same (model, seed, "

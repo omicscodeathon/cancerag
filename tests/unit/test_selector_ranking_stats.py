@@ -149,6 +149,15 @@ def write_pair(tmp_path, seeds_rows, long_rows=None):
     return s, lg
 
 
+def test_one_selector_yields_an_empty_but_well_formed_contrast_table():
+    df = per_seed([("pooled", "a", s, 0.5) for s in (1, 2, 3)])
+    c = contrasts(df)
+    assert len(c) == 0
+    # A column-less frame breaks every downstream `.scope` lookup.
+    assert list(c.columns)[:3] == ["scope", "selector_a", "selector_b"]
+    assert c[c.scope == "pooled"].empty
+
+
 def test_main_refuses_a_single_seed(tmp_path, capsys):
     s, _ = write_pair(tmp_path, [("a", "lgbm", 42, 0.5), ("b", "lgbm", 42, 0.4)])
     assert main(["--seeds-csv", str(s), "--output-dir", str(tmp_path / "o")]) == 1
@@ -195,6 +204,21 @@ def test_main_refuses_when_two_selectors_produced_the_identical_fit(tmp_path, ca
     assert main(["--seeds-csv", str(s), "--long-csv", str(lg),
                  "--output-dir", str(tmp_path / "o")]) == 1
     assert "identical" in capsys.readouterr().err
+
+
+def test_an_all_empty_collision_column_is_not_a_refusal(tmp_path):
+    """It round-trips through CSV as float64 NaN, not as empty strings."""
+    s, lg = write_pair(
+        tmp_path,
+        [("a", "lgbm", seed, 0.5) for seed in (1, 2)],
+        [("a", "lgbm", seed, 0, 0.5, 10, None) for seed in (1, 2)],
+    )
+    df = pd.read_csv(lg)
+    df["collides_with"] = [None, None]
+    df.to_csv(lg, index=False)
+    assert pd.read_csv(lg).collides_with.dtype.kind == "f"  # the trap
+    assert main(["--seeds-csv", str(s), "--long-csv", str(lg),
+                 "--output-dir", str(tmp_path / "o")]) == 0
 
 
 def test_main_writes_both_artefacts_and_pools_over_learners(tmp_path):
