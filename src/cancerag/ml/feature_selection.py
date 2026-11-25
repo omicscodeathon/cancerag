@@ -362,13 +362,13 @@ def run_selector_ablation(
     [selector, model, seed, fold, macro_f1, n_features_selected,
     fallback_reason].
     """
-    import joblib
     from sklearn.model_selection import StratifiedKFold
     from cancerag.ml.preprocessing import (
         build_full_pipeline, get_X_y_groups, make_grouped_cv,
     )
     from cancerag.ml.model_training import MODEL_FACTORIES, _combined_weight
-    output_dir = Path(output_dir); output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
     selectors = selectors or list(SELECTORS.keys())
     models = models or ["xgboost", "lightgbm", "elastic_lr", "random_forest"]
 
@@ -636,7 +636,8 @@ def run_feature_selection(
     train-eligible matrix and persist the selected feature list. The actual
     fit-inside-CV happens in the trainer (Stage 10).
     """
-    preprocessed_dir = Path(preprocessed_dir); output_dir = Path(output_dir)
+    preprocessed_dir = Path(preprocessed_dir)
+    output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     X = pd.read_parquet(preprocessed_dir / "X_train_eligible.parquet")
@@ -649,7 +650,6 @@ def run_feature_selection(
 
     # 2. Univariate top-K
     topk = univariate_topk(X1, y, k=univariate_k)
-    X2 = X1[topk]
 
     # 3. Force-keep methodologically important columns even if pre-screens
     # dropped them

@@ -26,7 +26,6 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
 
 import joblib
 import numpy as np
@@ -624,7 +623,8 @@ def run_preprocessing(
     reviewer can inspect the global statistics (column drop list, medians,
     label encoder) before training.
     """
-    output_dir = Path(output_dir); output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
     df = load_dataset(dataset_path or DATASET_PATH)
     cols = identify_columns(df)
     logger.info(

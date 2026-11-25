@@ -40,7 +40,6 @@ import numpy as np
 import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import f1_score
 from sklearn.model_selection import StratifiedKFold
 
 from cancerag.ml.preprocessing import make_grouped_cv
@@ -120,10 +119,10 @@ def run_chemberta_baseline(
     from sklearn.utils.class_weight import compute_sample_weight
     from cancerag.ml.model_evaluation import report_metrics
 
-    output_dir = Path(output_dir); output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
     df = pd.read_parquet(dataset_path)
     le = joblib.load(label_encoder_path)
-    n_classes = len(le.classes_)
 
     # 1. Embed SMILES (cache to disk so we don't re-embed on every run)
     cache_path = output_dir / "embeddings.npz"
