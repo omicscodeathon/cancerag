@@ -81,8 +81,16 @@ def main(argv: list[str] | None = None) -> int:
         cv_n_folds=args.cv_folds,
     )
     n_failed = int(abl["macro_f1"].isna().sum())
-    log.info("finished %d cells (%d failed) in %.1f min",
-             len(abl), n_failed, (time.time() - t0) / 60)
+    n_fallback = int(abl["fallback_reason"].notna().sum())
+    log.info("finished %d cells (%d failed, %d fell back) in %.1f min",
+             len(abl), n_failed, n_fallback, (time.time() - t0) / 60)
+    if n_fallback:
+        # A fallback cell scores fine and is filed under the selector's name
+        # while measuring something else, so it must not pass quietly.
+        for _, r in abl[abl["fallback_reason"].notna()].iterrows():
+            log.error("[%s|%s|fold=%s] NOT a %s measurement: %s",
+                      r.selector, r.model, r.fold, r.selector,
+                      r.fallback_reason)
 
     print("\n=== per-selector mean macro-F1 (across learners and folds) ===")
     per_sel = abl.groupby("selector")["macro_f1"].agg(["mean", "std"])
@@ -93,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
     for name, row in per_model.sort_values("mean", ascending=False).iterrows():
         print(f"  {name:<14} {row['mean']:.4f} +/- {row['std']:.4f}")
     print(f"\nArtefacts written to {Path(args.output_dir).resolve()}")
-    return 1 if n_failed else 0
+    return 1 if (n_failed or n_fallback) else 0
 
 
 if __name__ == "__main__":

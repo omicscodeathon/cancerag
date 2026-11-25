@@ -93,8 +93,16 @@ class BorutaSelector(BaseEstimator, TransformerMixin):
             n_jobs=-1, class_weight="balanced",
             random_state=self.random_state,
         )
+        # A missing `boruta` is an environment fault, not a data fault, and it
+        # must not be absorbed. Absorbing it was worse than a crash: the
+        # fallback keeps every column, the fitted pipeline still scores, and
+        # the ablation then files that score in a row labelled `boruta`. The
+        # artefact says Boruta was measured when no selection happened at all.
+        # Seen 2026-11-25: twelve `boruta` cells recorded in a sandbox that
+        # never had the package installed.
+        from boruta import BorutaPy
+        self.fallback_reason_ = None
         try:
-            from boruta import BorutaPy
             boruta = BorutaPy(
                 rf, n_estimators=self.n_estimators,
                 random_state=self.random_state,
@@ -103,8 +111,13 @@ class BorutaSelector(BaseEstimator, TransformerMixin):
             boruta.fit(X.values, np.asarray(y))
             selected = list(np.array(self.feature_names_)[boruta.support_])
         except Exception as exc:
+            # A genuine failure to converge on this fold is recoverable, but
+            # it is recorded on the estimator so a caller can refuse to
+            # publish the number as Boruta's.
+            self.fallback_reason_ = f"{type(exc).__name__}: {exc}"
             logger.warning(
-                "Boruta failed (%s); falling back to no-selection", exc,
+                "Boruta failed (%s); falling back to no-selection. This cell "
+                "is NOT a Boruta measurement.", exc,
             )
             selected = list(self.feature_names_)
         forced = [
@@ -357,21 +370,38 @@ def run_selector_ablation(
                     macro_f1 = float(f1_score(y[te], y_pred,
                                                average="macro", zero_division=0))
                     n_sel = len(pipe.named_steps["selector"].selected_)
+                    # A selector that fell back to keeping every column did
+                    # not measure what this row is named after. Carry the
+                    # reason into the artefact so the number can never be
+                    # quoted as that selector's.
+                    fallback = getattr(
+                        pipe.named_steps["selector"], "fallback_reason_", None)
                 except Exception as exc:
                     logger.warning(
                         "[%s|%s|fold=%d] failed: %s", sname, mname, fi, exc,
                     )
                     macro_f1, n_sel = float("nan"), 0
+                    fallback = f"{type(exc).__name__}: {exc}"
                 rows.append({
                     "selector": sname, "model": mname, "fold": fi,
                     "macro_f1": macro_f1, "n_features_selected": n_sel,
+                    "fallback_reason": fallback,
                 })
                 logger.info(
-                    "[%s|%s|fold=%d] macro_f1=%.3f, n_features=%d",
+                    "[%s|%s|fold=%d] macro_f1=%.3f, n_features=%d%s",
                     sname, mname, fi, macro_f1, n_sel,
+                    f"  FALLBACK({fallback})" if fallback else "",
                 )
     abl = pd.DataFrame(rows)
     abl.to_csv(output_dir / "selector_ablation_long.csv", index=False)
+
+    n_fallback = int(abl["fallback_reason"].notna().sum())
+    if n_fallback:
+        logger.error(
+            "%d of %d cells fell back and are NOT measurements of the "
+            "selector they are filed under: %s", n_fallback, len(abl),
+            sorted(set(abl.loc[abl["fallback_reason"].notna(), "selector"])),
+        )
 
     # Aggregate to a 4×4 matrix
     summary = (
@@ -379,6 +409,11 @@ def run_selector_ablation(
         .agg(mean="mean", std="std", n="count")
         .reset_index()
     )
+    # How many of each cell's folds are real measurements of that selector.
+    ok = (abl[abl["fallback_reason"].isna()]
+          .groupby(["selector", "model"]).size().rename("n_not_fallback"))
+    summary = summary.merge(ok, on=["selector", "model"], how="left")
+    summary["n_not_fallback"] = summary["n_not_fallback"].fillna(0).astype(int)
     summary.to_csv(output_dir / "selector_ablation_summary.csv", index=False)
     pivot = summary.pivot(index="selector", columns="model", values="mean")
     pivot.to_csv(output_dir / "selector_ablation_matrix.csv")

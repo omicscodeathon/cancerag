@@ -120,9 +120,14 @@ def make_catboost(*, n_classes: int, random_state: int = 42, **kwargs):
 
 
 def make_elastic_lr(*, n_classes: int, random_state: int = 42, **kwargs):
+    # `multi_class` was deprecated in scikit-learn 1.5 and REMOVED in 1.7, so
+    # passing it raises TypeError on the version this project already pins
+    # (`scikit-learn>=1.7.2`). It is simply dropped rather than replaced:
+    # multinomial is what LogisticRegression now does for a multiclass target
+    # on any solver but liblinear, which is exactly what was being asked for.
     params = dict(
         penalty="elasticnet", solver="saga", l1_ratio=0.5, C=0.5,
-        max_iter=2000, multi_class="multinomial",
+        max_iter=2000,
         n_jobs=4, random_state=random_state, class_weight="balanced",
     )
     params.update(kwargs)
