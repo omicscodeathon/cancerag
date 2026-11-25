@@ -210,9 +210,33 @@ def probe_shap() -> dict:
 def probe_selector() -> dict:
     import pandas as pd
 
-    df = pd.read_csv(MODELS / "selector_ablation" / "selector_ablation_summary.csv")
-    best = df.groupby("selector")["mean"].mean().idxmax()
-    return {"cells": len(df), "best_selector": best}
+    out = MODELS / "selector_ablation_shuffled"
+    df = pd.read_csv(out / "selector_ablation_summary.csv")
+    probe = {
+        "cells": len(df),
+        "fits": int(df["n"].sum()),
+        "fallbacks": int(df["n"].sum() - df["n_not_fallback"].sum()),
+        "seeds": int(df["n_seeds"].max()),
+        "shuffled_folds": bool(df["shuffle_folds"].all()),
+    }
+    # The ordering is the claim this step is cited for, so the probe reports
+    # how much of it the design can actually resolve rather than just naming a
+    # winner (HAL-6168).
+    rank_path = out / "selector_ablation_ranking.csv"
+    cont_path = out / "selector_ablation_contrasts.csv"
+    if rank_path.exists() and cont_path.exists():
+        pooled = pd.read_csv(rank_path).query("scope == 'pooled'")
+        cont = pd.read_csv(cont_path).query("scope == 'pooled'")
+        n_sel = len(pooled)
+        probe["best_selector"] = pooled.sort_values("mean").selector.iloc[-1]
+        probe["pairs_resolved"] = (
+            f"{int(cont.delta_excludes_zero.sum()) // 2} of "
+            f"{n_sel * (n_sel - 1) // 2}"
+        )
+    else:
+        probe["best_selector"] = df.groupby("selector")["mean"].mean().idxmax()
+        probe["pairs_resolved"] = "unranked (run scripts/selector_ranking_stats.py)"
+    return probe
 
 
 def probe_clustering() -> dict:
@@ -533,9 +557,11 @@ def _chain() -> list[StepSpec]:
             lambda: _script("scripts/ablation_by_block.py"),
         ),
         StepSpec(
-            "selector_ablation", "four selectors × four learners, force-keeping off",
-            [MODELS / "selector_ablation" / "selector_ablation_summary.csv"],
-            lambda: _script("scripts/run_selector_ablation.py"), probe_selector,
+            "selector_ablation",
+            "four selectors × four learners over five seeds, force-keeping off",
+            [MODELS / "selector_ablation_shuffled" / "selector_ablation_summary.csv",
+             MODELS / "selector_ablation_shuffled" / "selector_ablation_ranking.csv"],
+            lambda: _selector_ablation(), probe_selector,
         ),
         StepSpec(
             "clustering", "unsupervised check that the classes are not already separable",
@@ -550,8 +576,25 @@ def _chain() -> list[StepSpec]:
     ]
 
 
-def _script(path: str) -> None:
-    subprocess.run([sys.executable, path], check=True, env=_child_env())
+def _selector_ablation() -> None:
+    """Run the ablation, then turn its per-seed scores into a ranking.
+
+    Two scripts, one step: the figure and the manuscript quote the ranking
+    artefacts, so a run that produced the scores and stopped would leave the
+    step's own outputs half written.
+    """
+    out = MODELS / "selector_ablation_shuffled"
+    _script("scripts/run_selector_ablation.py")
+    _script(
+        "scripts/selector_ranking_stats.py",
+        "--seeds-csv", str(out / "selector_ablation_seeds.csv"),
+        "--long-csv", str(out / "selector_ablation_long.csv"),
+        "--output-dir", str(out),
+    )
+
+
+def _script(path: str, *argv: str) -> None:
+    subprocess.run([sys.executable, path, *argv], check=True, env=_child_env())
 
 
 def _module_cli(module: str) -> None:
